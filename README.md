@@ -55,13 +55,21 @@
 
 ## 🖼️ 产品截图
 
-| 登录页 | 主面板 |
-|--------|--------|
-| ![登录页](docs/screenshots/01-login-page.png) | ![主面板](docs/screenshots/02-main-dashboard.png) |
+| 工作台仪表盘 | 客户管理 |
+|-------------|----------|
+| ![工作台](docs/screenshots/02-main-dashboard.png) | ![客户管理](docs/screenshots/03-customer-list.png) |
 
-| 客户列表 | 邮件列表 |
-|----------|----------|
-| ![客户列表](docs/screenshots/03-customer-list.png) | ![邮件列表](docs/screenshots/04-email-list.png) |
+| 邮件管理列表 | 邮件详情 & AI 分析 |
+|-------------|-------------------|
+| ![邮件列表](docs/screenshots/04-email-list.png) | ![邮件详情](docs/screenshots/05-email-detail.png) |
+
+| AI 智能助手 | 跟进计划 |
+|------------|----------|
+| ![AI助手](docs/screenshots/06-ai-assistant.png) | ![跟进计划](docs/screenshots/07-followups.png) |
+
+| 登录页 |
+|--------|
+| ![登录页](docs/screenshots/01-login-page.png) |
 
 ---
 

@@ -57,7 +57,12 @@ desktop.ini
 *.temp
 *.bak
 *.zip
-!AI-CRM-System-delivery.zip
+
+# ==================== 演示数据生成相关 ====================
+docs/demo_token.txt
+docs/generate_demo_data.py
+docs/start_demo_server.py
+docs/take_screenshots.py
 
 # ==================== Node.js (如果有) ====================
 node_modules/
