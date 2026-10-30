@@ -1,0 +1,3383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>AI CRM 系统</title>
+    <link rel="stylesheet" href="/static/css/style.css?v=59">
+    <script src="/static/js/common.js?v=53"></script>
+</head>
+<body>
+
+<!-- Left Sidebar (full height, spans from top to bottom) -->
+<div class="left-sidebar" id="leftSidebar">
+    <div class="dash-logo">
+        <div class="dash-logo-icon">✉</div>
+        <div><div class="dash-logo-title">AI CRM 系统</div><div class="dash-logo-sub">智能客户管理平台</div></div>
+    </div>
+    <nav class="dash-nav">
+        <div class="dash-nav-item active" data-dash="dashboard" onclick="switchView('dashboard')"><span class="dash-nav-ic">⌂</span>工作台</div>
+        <div class="dash-nav-item" data-dash="customers" onclick="switchView('customers')"><span class="dash-nav-ic">♙</span>客户管理</div>
+        <div class="dash-nav-item" data-dash="emails" onclick="switchView('emails')"><span class="dash-nav-ic">✉</span>邮件管理</div>
+        <div class="dash-nav-item" data-dash="followups" onclick="switchView('followups')"><span class="dash-nav-ic">▣</span>跟进计划</div>
+        <div class="dash-nav-item" data-dash="ai" onclick="openAiAssistant()"><span class="dash-nav-ic">✧</span>AI 助手</div>
+        <div class="dash-nav-item" data-dash="settings" onclick="openSettings()"><span class="dash-nav-ic">⚙</span>设置中心</div>
+    </nav>
+    <div style="display:none"><div id="navStatCustomers"></div><div id="navStatEmails"></div><div id="navStatWa"></div><span id="navTotalCustomers"></span><span id="navTotalEmails"></span><span id="navTotalWa"></span><span id="navPriorityHot"></span><span id="navPriorityWarm"></span><span id="navPriorityCold"></span></div>
+    <div class="sidebar-bottom">
+        <button class="dash-wa-btn" onclick="openWaImport()">📥 导入 WhatsApp</button>
+    </div>
+</div>
+
+<!-- Main Wrapper (header + content, sits to the right of sidebar) -->
+<div class="main-wrapper">
+
+<!-- Header -->
+<div class="app-header">
+    <div class="top-search" id="topSearch"><span class="search-icon"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input type="text" id="searchInput" placeholder="搜索客户、邮件、电话、邮箱..." autocomplete="off" oninput="onSearch();globalSearch(this.value)" onfocus="globalSearch(this.value)" onkeydown="if(event.key==='Escape')closeSearchDropdown()"><div class="search-dropdown" id="searchDropdown"></div></div>
+    <div class="header-right" id="headerActions">
+        <div class="ai-status loading" id="aiStatus" onclick="toggleAiTooltip(event)">
+            <span class="dot"></span>
+            <span id="aiStatusText">AI 检测中...</span>
+            <div class="ai-tooltip" id="aiTooltip">
+                <div><span class="label">模型:</span> <span id="aiModel">-</span></div>
+                <div><span class="label">状态:</span> <span id="aiMessage">-</span></div>
+            </div>
+        </div>
+        <span id="userBadge" class="user-badge" style="display:none;">
+            <span class="avatar" id="userAvatar">U</span>
+            <span id="userEmail">-</span>
+            <button class="acc-arrow" id="accArrowBtn" title="切换账号" onclick="toggleAccountDropdown(event)">⌄</button>
+        </span>
+        <div class="notif-wrap" id="notifWrap">
+            <button class="notif-btn" id="notifBtn" onclick="toggleNotifPanel(event)" aria-label="消息通知">
+                <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+                <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
+            </button>
+            <div class="notif-panel" id="notifPanel">
+                <div class="notif-head">
+                    <span class="notif-title">消息通知</span>
+                    <span class="notif-today" id="notifTodayText">今天待回复 0 封</span>
+                </div>
+                <div class="notif-list" id="notifList"></div>
+                <div class="notif-foot">点击未回复邮件可跳转到邮件详情</div>
+            </div>
+        </div>
+        <button class="logout-btn" id="logoutBtn" style="display:none;" onclick="doLogout()">退出</button>
+        <div id="accountDropdown" style="position:absolute;top:calc(100% + 6px);right:0;width:300px;background:#fff;border:1px solid #E6EAF0;border-radius:14px;box-shadow:0 8px 24px rgba(15,23,42,.12);z-index:200;display:none;overflow:hidden;">
+            <div class="dd-current">
+                <div class="dd-cur-avatar" id="ddCurAvatar">U</div>
+                <div class="dd-cur-info">
+                    <div class="dd-cur-email" id="ddCurEmail">-</div>
+                    <div class="dd-cur-provider" id="ddCurProvider">-</div>
+                </div>
+            </div>
+            <div class="dd-section-label">切换账号</div>
+            <div class="dd-list" id="ddAccountList"></div>
+            <div class="dd-actions">
+                <div class="dd-action-item" onclick="addNewAccount()">
+                    <div class="dd-action-icon dd-add-icon">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </div>
+                    <span>添加账号</span>
+                </div>
+                <div class="dd-action-item dd-logout-item" onclick="doLogout()">
+                    <div class="dd-action-icon dd-logout-icon">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    </div>
+                    <span>退出登录</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="app-body">
+    <div class="right-sidebar">
+        <div class="right-header">
+            <span id="rightTitle">客户列表</span>
+            <span class="right-count" id="rightCount">0</span>
+        </div>
+        <div class="middle-toolbar"><select class="priority-filter-select" id="priorityFilter" onchange="onPriorityFilter()">
+                <option value="">全部优先级</option>
+                <option value="hot">高优先级</option>
+                <option value="warm">中优先级</option>
+                <option value="cold">低优先级</option>
+            </select>
+            <button class="btn-fetch" id="fetchBtn" onclick="fetchEmails()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 拉取邮件</button>
+            <button class="btn-clear" id="clearBtn" onclick="clearData()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> 清空数据</button>
+            <button class="btn-fetch btn-outline" id="followupBtn" onclick="openFollowupDialog()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg> 跟进计划</button>
+        </div>
+        <div class="right-filter">
+            <select id="rightFilter" onchange="onRightFilter()">
+                <option value="">全部</option>
+                <option value="hot">高优先级</option>
+                <option value="warm">中优先级</option>
+                <option value="cold">低优先级</option>
+            </select>
+        </div>
+        <div class="right-list" id="rightList">
+            <div class="list-empty">加载中...</div>
+        </div>
+    </div>
+
+    <div class="middle-panel">
+        <div class="detail-topbar">
+                        <button class="back-btn" id="backBtn" style="display:none;" onclick="goBack()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> 返回</button>
+        </div>
+        <div class="middle-content" id="middleContent">
+            <div class="loading">
+                <div class="spinner"></div>
+                <div>加载中...</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</div><!-- /main-wrapper -->
+
+<!-- WhatsApp Import Dialog -->
+<div class="wa-dialog-overlay" id="waImportOverlay">
+    <div class="wa-dialog">
+        <div class="wa-dialog-header">
+            <h3><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true" style="vertical-align:-3px;margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> 导入 WhatsApp 聊天记录</h3>
+            <button class="wa-dialog-close" onclick="closeWaImport()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="wa-dialog-body">
+            <div class="wa-import-hint-box">
+                只要是 WhatsApp 导出的文本即可，系统会自动识别格式（Android / iOS / WhatsApp Web / 中英文日期 / 12/24小时制等）
+            </div>
+            <div style="margin-bottom:12px;">
+                <div class="upload-text" style="margin-bottom:6px;">方式一：粘贴聊天记录文本</div>
+                <textarea id="waTextInput" placeholder="将 WhatsApp 导出的聊天记录粘贴到这里...&#10;&#10;例如：&#10;2026-07-25 14:30 - John: Hi, I need a quote&#10;2026-07-25 14:31 - Me: Sure, what product?&#10;&#10;或 iOS 格式：&#10;[25/07/2026, 14:30:00] John: Hi&#10;&#10;或任意 WhatsApp 导出格式均可"></textarea>
+            </div>
+            <div class="wa-or">— 或者 —</div>
+            <div style="margin-top:12px;">
+                <div class="upload-text" style="margin-bottom:6px;">方式二：上传聊天记录文件</div>
+                <label class="wa-file-upload" id="waFileLabel">
+                    <input type="file" id="waFileInput" accept=".txt,.csv,.log,.text,text/plain" onchange="onWaFileSelected(event)">
+                    <div class="upload-text"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" style="margin-bottom:8px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><br>点击选择文件</div>
+                    <div class="upload-hint">支持 WhatsApp 导出的文本文件（自动识别编码和格式）</div>
+                </label>
+                <div id="waFileName" class="wa-file-name" style="display:none;"></div>
+            </div>
+        </div>
+        <div class="wa-dialog-footer">
+            <button class="wa-btn wa-btn-cancel" onclick="closeWaImport()">取消</button>
+            <button class="wa-btn wa-btn-import" id="waImportBtn" onclick="doWaImport()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 导入</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- 编辑客户对话框 -->
+<div class="wa-dialog-overlay" id="editCustomerOverlay">
+    <div class="wa-dialog edit-dialog">
+        <div class="wa-dialog-header">
+            <h3><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg> 编辑客户 · <span id="editCustomerName"></span></h3>
+            <button class="wa-dialog-close" onclick="closeEditDialog()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="wa-dialog-body">
+            <div class="edit-grid">
+                <div class="form-group">
+                    <label>优先等级</label>
+                    <select id="editPriority">
+                        <option value="hot">高优先级</option>
+                        <option value="warm">中优先级</option>
+                        <option value="cold">低优先级</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>客户等级</label>
+                    <select id="editGrade">
+                        <option value="">未分级</option>
+                        <option value="A">A 级 · 重点客户</option>
+                        <option value="B">B 级 · 潜力客户</option>
+                        <option value="C">C 级 · 普通客户</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>客户类型</label>
+                <input type="text" id="editCustomerType" placeholder="如：经销商 / 终端用户">
+            </div>
+            <div class="form-group">
+                <label>公司规模</label>
+                <input type="text" id="editCompanySize" placeholder="如：中型企业">
+            </div>
+            <div class="form-group">
+                <label>历史合作摘要</label>
+                <textarea id="editHistorySummary" rows="3" placeholder="客户的采购历史、合作情况、关注产品等"></textarea>
+            </div>
+            <div class="form-group">
+                <label>沟通风格</label>
+                <input type="text" id="editCommStyle" placeholder="如：专业正式、价格敏感">
+            </div>
+            <div class="form-group">
+                <label>风险与机会</label>
+                <textarea id="editRisks" rows="3" placeholder="当前合作中的潜在风险和业务机会"></textarea>
+            </div>
+        </div>
+        <div class="wa-dialog-footer">
+            <button class="wa-btn wa-btn-cancel" onclick="closeEditDialog()">取消</button>
+            <button class="wa-btn wa-btn-import" onclick="saveCustomerEdit()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- AI 对话对话框 -->
+<div class="wa-dialog-overlay" id="aiChatOverlay">
+    <div class="wa-dialog chat-dialog">
+        <div class="wa-dialog-header">
+            <h3><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg> AI 对话 · <span id="chatCustomerName"></span></h3>
+            <button class="wa-dialog-close" onclick="closeChatDialog()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="chat-body" id="chatBody"></div>
+        <div class="chat-input-row">
+            <input type="text" id="chatInput" placeholder="问问 AI 关于这个客户的问题…" onkeydown="if(event.key==='Enter')sendChatMessage()">
+            <button class="wa-btn wa-btn-import" onclick="sendChatMessage()">发送</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- 喂数据（养 AI 模型）对话框 -->
+<div class="wa-dialog-overlay" id="feedOverlay">
+    <div class="wa-dialog">
+        <div class="wa-dialog-header">
+            <h3><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg> 喂数据 · 养 AI 助手</h3>
+            <button class="wa-dialog-close" onclick="closeFeedDialog()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="wa-dialog-body">
+            <div class="wa-import-hint-box">把业务知识、客户规则、话术等粘贴进来，AI 助手会在后续对话中参考这些内容（相当于喂养/培养 AI 模型）。</div>
+            <textarea id="feedContent" rows="8" placeholder="例如：&#10;- 重要客户每周跟进一次，报价后 48 小时内回访&#10;- 客户画像规范：客户类型/公司规模/历史合作/沟通风格/风险与机会&#10;- 回复客户邮件默认使用英文草稿&#10;..."></textarea>
+        </div>
+        <div class="wa-dialog-footer">
+            <button class="wa-btn wa-btn-cancel" onclick="closeFeedDialog()">取消</button>
+            <button class="wa-btn wa-btn-import" onclick="saveFeed()">喂入知识库</button>
+        </div>
+    </div>
+</div>
+
+<!-- 客户跟进计划对话框 -->
+<div class="wa-dialog-overlay" id="followupOverlay">
+    <div class="wa-dialog followup-dialog">
+        <div class="wa-dialog-header">
+            <h3><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg> 客户跟进计划</h3>
+            <button class="wa-dialog-close" onclick="closeFollowupDialog()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="wa-dialog-body">
+            <div class="fu-actions">
+                <button class="wa-btn wa-btn-import" id="fuGenerateBtn" onclick="generateFollowups()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg> 按规则生成</button>
+                <button class="wa-btn wa-btn-cancel" onclick="toggleRulesEdit()">编辑跟进规则</button>
+            </div>
+            <div id="rulesBox" class="rules-box" style="display:none;"></div>
+            <div class="fu-hint">按客户等级/优先级自动生成跟进日期，重要客户跟进更频繁。</div>
+            <table class="fu-table">
+                <thead><tr><th>客户</th><th>等级</th><th>优先级</th><th>摘要</th><th>跟进日期</th><th>状态</th><th>操作</th></tr></thead>
+                <tbody id="followupTbody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 新邮件筛选对话框 -->
+<div class="wa-dialog-overlay" id="fetchReviewOverlay">
+    <div class="wa-dialog review-dialog">
+        <div class="wa-dialog-header">
+            <h3><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg> 新邮件筛选（保留 / 删除）</h3>
+            <button class="wa-dialog-close" onclick="closeFetchReview()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="wa-dialog-body">
+            <div class="wa-import-hint-box">勾选要删除的邮件（如阿里提醒、广告、订阅等），删除后不会进入客户名单；未勾选的保留并进入系统。</div>
+            <div id="reviewList"></div>
+        </div>
+        <div class="wa-dialog-footer">
+            <button class="wa-btn wa-btn-cancel" onclick="closeFetchReview(true)">全部保留</button>
+            <button class="wa-btn wa-btn-import" onclick="confirmFetchReview()">删除所选</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- AI 知识库对话框 -->
+<div class="wa-dialog-overlay" id="knowledgeOverlay">
+    <div class="wa-dialog knowledge-dialog">
+        <div class="wa-dialog-header">
+            <h3><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg> AI 知识库</h3>
+            <button class="wa-dialog-close" onclick="closeKnowledgeDialog()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="wa-dialog-body">
+            <div class="wa-import-hint-box">已喂入 AI 助手的知识 / 规则，AI 会在后续对话中参考。可删除不需要的条目。</div>
+            <div id="knowledgeList"></div>
+        </div>
+        <div class="wa-dialog-footer">
+            <button class="wa-btn wa-btn-cancel" onclick="closeKnowledgeDialog()">关闭</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+    const API = location.origin + "/api";
+
+
+    // ── 全局搜索（客户/邮件 下拉） ──
+    function globalSearch(q) {
+        q = (q || "").trim().toLowerCase();
+        const dd = document.getElementById("searchDropdown");
+        if (!dd) return;
+        if (!q) { dd.style.display = "none"; return; }
+        const cu = (customers||[]).filter(function(c){ return (c.name||"").toLowerCase().indexOf(q)>=0 || (c.email||"").toLowerCase().indexOf(q)>=0 || (c.company||"").toLowerCase().indexOf(q)>=0 || (c.phone||"").toLowerCase().indexOf(q)>=0; }).slice(0,5);
+        const em = (emails||[]).filter(function(e){ return (e.subject||"").toLowerCase().indexOf(q)>=0 || (e.sender||"").toLowerCase().indexOf(q)>=0 || (e.customer_name||"").toLowerCase().indexOf(q)>=0; }).slice(0,5);
+        if (!cu.length && !em.length) { dd.innerHTML = '<div class="sd-empty">未找到相关结果</div>'; dd.style.display = "block"; return; }
+        let html = "";
+        if (cu.length) {
+            html += '<div class="sd-group">客户</div>';
+            cu.forEach(function(c){ html += '<div class="sd-item" onclick="selectSearchResult(' + c.id + ',\'customer\')"><span class="sd-type cust">客</span><div class="sd-info"><div class="sd-name">' + esc(c.name||c.email) + '</div><div class="sd-sub">' + esc(c.email||"") + '</div></div></div>'; });
+        }
+        if (em.length) {
+            html += '<div class="sd-group">邮件</div>';
+            em.forEach(function(e){ html += '<div class="sd-item" onclick="selectSearchResult(' + e.id + ',\'email\')"><span class="sd-type mail">邮</span><div class="sd-info"><div class="sd-name">' + esc(e.subject||"(无主题)") + '</div><div class="sd-sub">' + esc(e.sender||e.customer_name||"") + '</div></div></div>'; });
+        }
+        dd.innerHTML = html;
+        dd.style.display = "block";
+    }
+    function closeSearchDropdown() { var d=document.getElementById("searchDropdown"); if(d) d.style.display="none"; }
+    function selectSearchResult(id, type) {
+        closeSearchDropdown();
+        if (type === "customer") {
+            if (currentView !== "customers") switchView("customers");
+            viewCustomer(id);
+        } else {
+            if (currentView !== "emails") switchView("emails");
+            viewEmail(id);
+        }
+    }
+
+    // ── 全局状态 ──
+    let currentView = "dashboard"; // dashboard/customers/emails/whatsapp
+    let currentDetailView = null; // null, "customer", "email"
+    let selectedCustomerId = null;
+    let selectedEmailId = null;
+    let customerDetailData = null;
+    let emailDetailData = null;
+    let stats = { total_customers: 0, total_emails: 0, hot_customers: 0, warm_customers: 0, cold_customers: 0, pending_customers: 0 };
+    let customers = [];
+    let emails = [];
+    let waConversations = [];
+    let searchQuery = "";
+    let priorityFilter = "";
+    let rightFilter = "";
+    let selectedWaFile = null;
+    let isLoggedIn = false;
+
+    // ── 视图历史栈（用于返回功能） ──
+    let _viewHistory = [];
+
+    function _pushHistory() {
+        _viewHistory.push({
+            view: currentView,
+            detailView: currentDetailView,
+            customerId: selectedCustomerId,
+            emailId: selectedEmailId,
+            customerData: customerDetailData,
+            emailData: emailDetailData,
+            searchQ: searchQuery,
+            pFilter: priorityFilter,
+            rFilter: rightFilter,
+        });
+        // 最多保留 20 条历史
+        if (_viewHistory.length > 20) {
+            _viewHistory.shift();
+        }
+    }
+
+    // ── AI 分析状态轮询 ──
+    let _pollTimer = null;
+    let _pollCount = 0;
+    let _prevAnalyzeStats = null;
+    window.addEventListener('beforeunload', function() { if (_pollTimer) clearInterval(_pollTimer); });
+
+    async function init() {
+        if (typeof loadAiStatus === "function") loadAiStatus();
+
+        const ok = await checkAuth();
+        if (!ok) {
+            location.href = "/login";
+            return;
+        }
+        isLoggedIn = true;
+
+        await loadUserInfo();
+        await loadAllData();
+    }
+
+    async function loadUserInfo() {
+        try {
+            const r = await fetch(API + "/auth/status", { headers: authHeaders() });
+            const d = await r.json();
+            if (d.logged_in) {
+                var _ue=document.getElementById("navUserEmail"); if(_ue) _ue.textContent = d.email || "已登录";
+                var _up=document.getElementById("navUserProvider"); if(_up) _up.textContent = d.provider_name || "";
+                var _ua=document.getElementById("navAvatar"); if(_ua) _ua.textContent = (d.email || "U")[0].toUpperCase();
+                var _sw=document.getElementById("switchAccountBtn"); if(_sw) _sw.style.display="none";
+                document.getElementById("logoutBtn").style.display = "inline-block";
+            }
+        } catch(e) {}
+    }
+
+    async function loadAllData() {
+        await loadStats();
+        await loadCustomers();
+        await loadEmails();
+        await loadWaConversations();
+        renderView();
+    }
+
+    async function loadStats() {
+        try {
+            const r = await fetch(API + "/stats", { headers: authHeaders() });
+            stats = await r.json();
+            updateStatsUI();
+        } catch(e) {}
+    }
+
+    async function loadCustomers() {
+        try {
+            const r = await fetch(API + "/customers", { headers: authHeaders() });
+            customers = await r.json();
+        } catch(e) {
+            customers = [];
+        }
+        updateStatsUI();
+    }
+
+    async function loadEmails() {
+        try {
+            const r = await fetch(API + "/emails", { headers: authHeaders() });
+            emails = await r.json();
+        } catch(e) {
+            emails = [];
+        }
+        renderNotifPanel();
+    }
+
+    async function loadWaConversations() {
+        try {
+            const r = await fetch(API + "/whatsapp/conversations", { headers: authHeaders() });
+            waConversations = await r.json();
+            document.getElementById("navTotalWa").textContent = waConversations.length;
+        } catch(e) {
+            waConversations = [];
+        }
+    }
+
+    function updateStatsUI() {
+        document.getElementById("navTotalCustomers").textContent = stats.total_customers || 0;
+        document.getElementById("navTotalEmails").textContent = stats.total_emails || 0;
+        // 更新优先级分布
+        const hotEl = document.getElementById("navPriorityHot");
+        const warmEl = document.getElementById("navPriorityWarm");
+        const coldEl = document.getElementById("navPriorityCold");
+        if (hotEl) hotEl.textContent = stats.hot_customers || 0;
+        if (warmEl) warmEl.textContent = stats.warm_customers || 0;
+        if (coldEl) coldEl.textContent = stats.cold_customers || 0;
+    }
+
+    // ── 视图切换 ──
+    function switchView(view) {
+        currentView = view;
+        currentDetailView = null;
+        selectedCustomerId = null;
+        selectedEmailId = null;
+        customerDetailData = null;
+        emailDetailData = null;
+        priorityFilter = "";
+        rightFilter = "";
+        searchQuery = "";
+        _viewHistory = []; // 切换大视图时清空历史
+        document.getElementById("searchInput").value = "";
+        document.getElementById("priorityFilter").value = "";
+        document.getElementById("rightFilter").value = "";
+        document.getElementById("backBtn").style.display = "none";
+
+        // 更新导航高亮
+        document.querySelectorAll(".nav-stat-item").forEach(function(el) { el.classList.remove("active"); });
+        document.querySelectorAll(".dash-nav-item[data-dash]").forEach(function(el) { el.classList.toggle("active", el.getAttribute("data-dash") === view || (view === "customers" && el.getAttribute("data-dash") === "customers") || (view === "emails" && el.getAttribute("data-dash") === "emails") || (view === "whatsapp" && el.getAttribute("data-dash") === "customers") || (view === "followups" && el.getAttribute("data-dash") === "followups")); });
+        var rs2 = document.querySelector(".right-sidebar");
+        var mp2 = document.querySelector(".middle-panel");
+        if (rs2 && mp2) { var dashMode = (view === "dashboard" || view === "settings" || view === "ai"); rs2.style.display = dashMode ? "none" : ""; if (dashMode) mp2.style.flex = "1"; else mp2.style.flex = ""; }
+        if (view === "customers") document.getElementById("navStatCustomers").classList.add("active");
+        else if (view === "emails") document.getElementById("navStatEmails").classList.add("active");
+        else if (view === "whatsapp") document.getElementById("navStatWa").classList.add("active");
+
+        renderView();
+    }
+
+    function renderView() {
+        // 确保从AI模式切回时恢复滚动
+        if (currentDetailView !== "ai") {
+            var mc = document.getElementById("middleContent");
+            if (mc) { mc.style.overflow = ""; mc.style.padding = ""; }
+        }
+        if (currentView === "dashboard") { renderDashboard(); return; }
+        if (currentView === "settings") { renderSettings(); return; }
+        if (currentDetailView === "ai") {
+            if (!document.getElementById("aiPanelBody")) renderAiAssistant();
+            return;
+        }
+        if (currentDetailView === "customer" && customerDetailData) {
+            renderCustomerDetail();
+            return;
+        }
+        if (currentDetailView === "email" && emailDetailData) {
+            renderEmailDetail();
+            return;
+        }
+
+        if (currentView === "customers") {
+            renderCustomersView();
+        } else if (currentView === "emails") {
+            renderEmailsView();
+        } else if (currentView === "whatsapp") {
+            renderWhatsAppView();
+        } else if (currentView === "followups") {
+            renderFollowupsView();
+        }
+    }
+
+    let _gradeGroupsCollapsed = { A: false, B: false, C: false, "": false };
+
+    function renderCustomersView() {
+        document.getElementById("rightTitle").textContent = "客户列表";
+        document.getElementById("backBtn").style.display = "none";
+
+        let filtered = customers;
+        if (priorityFilter) {
+            filtered = filtered.filter(function(c) { return c.priority === priorityFilter || (priorityFilter === "cold" && c.priority === "pending"); });
+        }
+        if (rightFilter) {
+            filtered = filtered.filter(function(c) { return c.priority === rightFilter || (rightFilter === "cold" && c.priority === "pending"); });
+        }
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            filtered = filtered.filter(function(c) {
+                return (c.email || "").toLowerCase().indexOf(q) >= 0 ||
+                       (c.name || "").toLowerCase().indexOf(q) >= 0 ||
+                       (c.company || "").toLowerCase().indexOf(q) >= 0;
+            });
+        }
+
+        document.getElementById("rightCount").textContent = filtered.length;
+
+        const rightList = document.getElementById("rightList");
+        if (filtered.length === 0) {
+            rightList.innerHTML = '<div class="list-empty">暂无客户</div>';
+        } else {
+            // 按等级分组
+            const groups = { A: [], B: [], C: [], "": [] };
+            filtered.forEach(function(c) {
+                const g = (c.grade || "").toUpperCase();
+                if (groups[g]) groups[g].push(c);
+                else groups[""].push(c);
+            });
+
+            const gradeOrder = ["A", "B", "C", ""];
+            const gradeNames = { A: "A 级客户（重点）", B: "B 级客户（潜力）", C: "C 级客户（普通）", "": "未分级" };
+            let html = "";
+            gradeOrder.forEach(function(grade) {
+                const list = groups[grade];
+                if (!list || list.length === 0) return;
+                const isCollapsed = _gradeGroupsCollapsed[grade];
+                const iconRot = isCollapsed ? "rotate(-90deg)" : "";
+                const display = isCollapsed ? "none" : "";
+                const groupKey = grade || "none";
+                html += '<div class="grade-group">';
+                html += '<div class="grade-group-header" onclick="toggleGradeGroup(\'' + groupKey + '\')">';
+                html += '<svg class="grade-group-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .2s;transform:' + iconRot + '"><polyline points="9 18 15 12 9 6"/></svg>';
+                html += '<span class="grade-group-name">' + esc(gradeNames[grade]) + '</span>';
+                html += '<span class="grade-group-count">' + list.length + '</span>';
+                html += '</div>';
+                html += '<div class="grade-group-body" style="display:' + display + '">';
+                list.forEach(function(c) {
+                    const isAnalyzing = ((c.email_count || 0) > 0 || (c.wa_message_count || 0) > 0) && !c.has_analysis;
+                    const isPending = c.priority === "pending";
+                    let pLabel, pClass;
+                    if (isAnalyzing || isPending) {
+                        pLabel = "分析中";
+                        pClass = "analyzing";
+                    } else {
+                        pLabel = priorityLabel(c.priority);
+                        pClass = c.priority || "cold";
+                    }
+                    const initial = (c.name || c.email || "U")[0].toUpperCase();
+                    html += '<div class="customer-item" onclick="viewCustomer(' + c.id + ')">';
+                    html += '<div class="ci-avatar ' + pClass + '">' + esc(initial) + '</div>';
+                    html += '<div class="ci-info">';
+                    html += '<div class="ci-name"><span class="ci-name-text">' + esc(c.name || c.email) + '</span>' + (c.grade ? '<span class="grade-badge grade-' + String(c.grade).toLowerCase() + '">' + esc(c.grade) + ' 级</span>' : '') + '</div>';
+                    html += '<div class="ci-email">' + esc(c.email) + '</div>';
+                    if (c.latest_summary) {
+                        html += '<div class="ci-hint">' + esc(c.latest_summary.substring(0, 60)) + '</div>';
+                    }
+                    html += '<div class="ci-extra">';
+                    html += '<span class="ci-time">' + formatTime(c.last_contact_at) + '</span>';
+                    html += '</div>';
+                    html += '</div>';
+                    html += '<div class="ci-meta">';
+                    html += '<span class="ci-dot ' + pClass + '" title="' + pLabel + '"></span>';
+                    html += '<span class="ci-count">' + (c.email_count || 0) + ' 封邮件</span>';
+                    html += '</div>';
+                    html += '</div>';
+                });
+                html += '</div></div>';
+            });
+            rightList.innerHTML = html;
+        }
+
+        renderMiddleEmpty("客户管理", "点击左侧客户查看详情，或拉取邮件获取新客户");
+    }
+
+    function toggleGradeGroup(key) {
+        const gradeKey = key === "none" ? "" : key;
+        _gradeGroupsCollapsed[gradeKey] = !_gradeGroupsCollapsed[gradeKey];
+        renderCustomersView();
+    }
+
+    function renderEmailsView() {
+        document.getElementById("rightTitle").textContent = "邮件列表";
+        document.getElementById("backBtn").style.display = "none";
+
+        let filtered = emails;
+        if (priorityFilter) {
+            filtered = filtered.filter(function(e) { return e.priority === priorityFilter || (priorityFilter === "cold" && e.priority === "pending"); });
+        }
+        if (rightFilter) {
+            filtered = filtered.filter(function(e) { return e.priority === rightFilter || (rightFilter === "cold" && e.priority === "pending"); });
+        }
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            filtered = filtered.filter(function(e) {
+                return (e.subject || "").toLowerCase().indexOf(q) >= 0 ||
+                       (e.sender || "").toLowerCase().indexOf(q) >= 0 ||
+                       (e.customer_name || "").toLowerCase().indexOf(q) >= 0;
+            });
+        }
+
+        document.getElementById("rightCount").textContent = filtered.length;
+
+        const rightList = document.getElementById("rightList");
+        if (filtered.length === 0) {
+            rightList.innerHTML = '<div class="list-empty">暂无邮件</div>';
+        } else {
+            let html = "";
+            filtered.forEach(function(e) {
+                let pLabel, pClass;
+                if (e.is_pending || (!e.has_analysis)) {
+                    pLabel = "分析中";
+                    pClass = "analyzing";
+                } else {
+                    pLabel = priorityLabel(e.priority);
+                    pClass = e.priority || "cold";
+                }
+                html += '<div class="email-item ' + pClass + (e.replied ? " replied" : "") + '" onclick="viewEmail(' + e.id + ')">';
+                html += '<div>';
+                if (e.replied) {
+                    html += '<span class="ei-replied">已回复</span> ';
+                }
+                if (e.no_reply_needed) {
+                    html += '<span class="ei-no-reply">无需回复</span> ';
+                }
+                html += '<span class="ei-badge ' + pClass + '">' + pLabel + '</span>';
+                html += '</div>';
+                html += '<div class="ei-subject">' + esc(e.subject || "(无主题)") + '</div>';
+                html += '<div class="ei-meta">' + esc(e.customer_name || e.sender || "") + ' · ' + formatTime(e.received_at) + '</div>';
+                if (e.summary) {
+                    html += '<div class="ei-summary">' + esc(e.summary.substring(0, 80)) + '</div>';
+                }
+                html += '</div>';
+            });
+            rightList.innerHTML = html;
+        }
+
+        renderMiddleEmpty("邮件管理", "点击左侧邮件查看详情和 AI 分析");
+    }
+
+    function renderWhatsAppView() {
+        document.getElementById("rightTitle").textContent = "WA 聊天记录";
+        document.getElementById("backBtn").style.display = "none";
+
+        let filtered = waConversations;
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            filtered = filtered.filter(function(c) {
+                return (c.customer_name || "").toLowerCase().indexOf(q) >= 0;
+            });
+        }
+
+        document.getElementById("rightCount").textContent = filtered.length;
+
+        const rightList = document.getElementById("rightList");
+        if (filtered.length === 0) {
+            rightList.innerHTML = '<div class="list-empty">暂无 WhatsApp 聊天记录<br><br><button class="btn btn-primary btn-sm" onclick="openWaImport()">导入聊天记录</button></div>';
+        } else {
+            let html = "";
+            filtered.forEach(function(c) {
+                html += '<div class="customer-item" onclick="viewCustomer(' + c.customer_id + ')">';
+                html += '<div class="ci-avatar warm"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>';
+                html += '<div class="ci-info">';
+                html += '<div class="ci-name">' + esc(c.customer_name) + '</div>';
+                html += '<div class="ci-hint">' + esc(c.last_message_preview || "") + '</div>';
+                html += '<div class="ci-extra">';
+                html += '<span class="ci-time">' + formatTime(c.last_message_time) + '</span>';
+                html += '</div>';
+                html += '</div>';
+                html += '<div class="ci-meta">';
+                if (c.has_analysis) {
+                    html += '<span class="ci-badge wa-analyzed">已分析</span>';
+                }
+                html += '<span class="ci-count">' + c.message_count + ' 条消息</span>';
+                html += '</div>';
+                html += '</div>';
+            });
+            rightList.innerHTML = html;
+        }
+
+        renderMiddleEmpty("WhatsApp 聊天记录", "点击左侧对话查看详情，或导入新的聊天记录");
+    }
+
+    // ── 跟进计划视图 ──
+    let followupListData = [];
+    let followupTab = "customers"; // customers / emails
+    let selectedFollowupId = null;
+
+    function renderFollowupsView() {
+        document.getElementById("rightTitle").textContent = "跟进计划";
+        document.getElementById("backBtn").style.display = "none";
+
+        // 加载跟进计划数据
+        loadFollowupList();
+
+        renderMiddleEmpty("跟进计划", "点击左侧跟进任务查看详情，或生成新的跟进计划");
+    }
+
+    async function loadFollowupList() {
+        try {
+            const r = await apiGet('/followups');
+            followupListData = r.items || r.followups || r || [];
+            document.getElementById("rightCount").textContent = followupListData.length;
+            renderFollowupList();
+        } catch(e) {
+            document.getElementById("rightCount").textContent = "0";
+            document.getElementById("rightList").innerHTML = '<div class="list-empty">加载失败</div>';
+        }
+    }
+
+    function renderFollowupList() {
+        const rightList = document.getElementById("rightList");
+        if (!followupListData || followupListData.length === 0) {
+            rightList.innerHTML = '<div class="list-empty">暂无跟进计划<br><br><button class="btn btn-primary btn-sm" onclick="generateAllFollowups()">生成跟进计划</button></div>';
+            return;
+        }
+
+        // 按状态分组：待跟进 / 已完成 / 逾期
+        const groups = { pending: [], done: [], overdue: [] };
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        followupListData.forEach(function(fu) {
+            const nextDate = fu.next_date ? new Date(fu.next_date) : null;
+            let status = fu.status || "pending";
+            if (status === "pending" && nextDate && nextDate < today) {
+                status = "overdue";
+            }
+            if (!groups[status]) groups[status] = [];
+            groups[status].push(fu);
+        });
+
+        const groupOrder = [
+            { key: "overdue", name: "🔴 逾期跟进", color: "#ef4444" },
+            { key: "pending", name: "🟡 待跟进", color: "#f59e0b" },
+            { key: "done", name: "🟢 已完成", color: "#10b981" }
+        ];
+
+        let html = "";
+        groupOrder.forEach(function(g) {
+            const list = groups[g.key] || [];
+            if (list.length === 0) return;
+            html += '<div class="fu-group">';
+            html += '<div class="fu-group-header"><span class="fu-group-name" style="color:' + g.color + '">' + g.name + '</span><span class="fu-group-count">' + list.length + '</span></div>';
+            list.forEach(function(fu) {
+                const isSelected = selectedFollowupId === fu.id;
+                html += '<div class="fu-item ' + (isSelected ? 'active' : '') + '" onclick="selectFollowup(' + fu.id + ')">';
+                html += '<div class="fu-avatar ' + g.key + '"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg></div>';
+                html += '<div class="fu-info">';
+                html += '<div class="fu-name">' + esc(fu.customer_name || '未知客户') + (fu.grade ? '<span class="grade-badge grade-' + String(fu.grade).toLowerCase() + '">' + esc(fu.grade) + '</span>' : '') + '</div>';
+                html += '<div class="fu-hint">' + esc((fu.summary || fu.action || '跟进维护').substring(0, 50)) + '</div>';
+                html += '<div class="fu-extra">';
+                html += '<span class="fu-date">' + formatFuDate(fu.next_date) + '</span>';
+                html += '</div>';
+                html += '</div>';
+                html += '<div class="fu-meta">';
+                if (fu.status === "done") {
+                    html += '<span class="fu-status done">已完成</span>';
+                } else if (g.key === "overdue") {
+                    html += '<span class="fu-status overdue">逾期</span>';
+                } else {
+                    html += '<span class="fu-status pending">待跟进</span>';
+                }
+                html += '</div>';
+                html += '</div>';
+            });
+            html += '</div>';
+        });
+
+        rightList.innerHTML = html;
+    }
+
+    function formatFuDate(d) {
+        if (!d) return "未定日期";
+        const date = new Date(d);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const diff = Math.floor((date - today) / (1000 * 60 * 60 * 24));
+        if (diff === 0) return "今天";
+        if (diff === 1) return "明天";
+        if (diff === -1) return "昨天";
+        if (diff > 0 && diff < 7) return diff + "天后";
+        if (diff < 0 && diff > -7) return Math.abs(diff) + "天前";
+        return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+    }
+
+    async function selectFollowup(id) {
+        selectedFollowupId = id;
+        const fu = followupListData.find(function(f) { return f.id === id; });
+        if (!fu) return;
+        renderFollowupList(); // 更新选中状态
+        // 渲染中间内容：客户/邮件切换 tab
+        renderFollowupMiddle(fu);
+    }
+
+    function renderFollowupMiddle(fu) {
+        const mc = document.getElementById("middleContent");
+        let html = '<div class="detail-page-container fu-detail-container" style="padding:0;">';
+        // Tab 切换
+        html += '<div class="fu-detail-tabs">';
+        html += '<button class="fu-tab ' + (followupTab === "customers" ? 'active' : '') + '" onclick="switchFuTab(\'customers\')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M6 21v-1a6 6 0 0 1 12 0v1"/></svg> 客户信息</button>';
+        html += '<button class="fu-tab ' + (followupTab === "emails" ? 'active' : '') + '" onclick="switchFuTab(\'emails\')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg> 邮件记录</button>';
+        html += '</div>';
+        // 跟进信息卡片
+        html += '<div class="fu-info-card">';
+        html += '<div class="fu-info-title">跟进任务</div>';
+        html += '<div class="fu-info-row"><span class="fu-info-label">客户</span><span class="fu-info-value">' + esc(fu.customer_name || '未知') + '</span></div>';
+        html += '<div class="fu-info-row"><span class="fu-info-label">计划日期</span><span class="fu-info-value">' + formatFuDate(fu.next_date) + '</span></div>';
+        html += '<div class="fu-info-row"><span class="fu-info-label">跟进方式</span><span class="fu-info-value">' + esc(fu.action || '未指定') + '</span></div>';
+        html += '<div class="fu-info-row"><span class="fu-info-label">摘要</span><span class="fu-info-value">' + esc(fu.summary || '暂无摘要') + '</span></div>';
+        html += '<div class="fu-info-row"><span class="fu-info-label">状态</span><span class="fu-info-value">' + (fu.status === 'done' ? '已完成' : (fu.status === 'pending' ? '待跟进' : fu.status)) + '</span></div>';
+        if (fu.status !== 'done') {
+            html += '<div class="fu-info-actions">';
+            html += '<button class="btn btn-primary btn-sm" onclick="markFollowupDone(' + fu.id + ')">✓ 标记完成</button>';
+            html += '<button class="btn btn-outline btn-sm" onclick="viewCustomer(' + fu.customer_id + ')">查看客户</button>';
+            html += '</div>';
+        }
+        html += '</div>';
+        // Tab 内容区域
+        html += '<div class="fu-tab-content" id="fuTabContent">加载中...</div>';
+        html += '</div>';
+        mc.innerHTML = html;
+
+        // 加载对应 tab 内容
+        if (followupTab === "customers") {
+            loadFuCustomerTab(fu.customer_id);
+        } else {
+            loadFuEmailsTab(fu.customer_id);
+        }
+    }
+
+    function switchFuTab(tab) {
+        followupTab = tab;
+        const fu = followupListData.find(function(f) { return f.id === selectedFollowupId; });
+        if (fu) renderFollowupMiddle(fu);
+    }
+
+    async function loadFuCustomerTab(customerId) {
+        try {
+            const c = await apiGet('/customers/' + customerId);
+            const el = document.getElementById("fuTabContent");
+            if (!el) return;
+            let html = '<div style="padding:16px;">';
+            html += '<div class="detail-page-header-card">';
+            html += '<div class="dh-top"><span class="badge-inline ' + priorityClass(c.priority) + '">' + priorityLabel(c.priority) + '</span>' + (c.grade ? '<span class="grade-badge grade-' + String(c.grade).toLowerCase() + '">' + esc(c.grade) + ' 级</span>' : '') + '</div>';
+            html += '<h2>' + esc(c.name || c.email) + '</h2>';
+            html += '<div class="meta">';
+            if (c.email) html += '<span><span class="meta-label">邮箱:</span> <span class="meta-value">' + esc(c.email) + '</span></span>';
+            if (c.company) html += '<span><span class="meta-label">公司:</span> <span class="meta-value">' + esc(c.company) + '</span></span>';
+            if (c.country) html += '<span><span class="meta-label">国家:</span> <span class="meta-value">' + esc(c.country) + '</span></span>';
+            html += '</div>';
+            html += '</div>';
+            if (c.profile_summary) {
+                try {
+                    const p = JSON.parse(c.profile_summary);
+                    if (p && typeof p === 'object') {
+                        html += '<div class="detail-page-card"><div class="detail-section-title">客户画像</div><div class="profile-grid">';
+                        for (var k in p) {
+                            if (p[k]) {
+                                html += '<div class="profile-item"><div class="profile-label">' + k + '</div><div class="profile-value">' + esc(p[k]) + '</div></div>';
+                            }
+                        }
+                        html += '</div></div>';
+                    }
+                } catch(e) {}
+            }
+            html += '</div>';
+            el.innerHTML = html;
+        } catch(e) {
+            const el = document.getElementById("fuTabContent");
+            if (el) el.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;">加载客户信息失败</div>';
+        }
+    }
+
+    async function loadFuEmailsTab(customerId) {
+        try {
+            const c = await apiGet('/customers/' + customerId);
+            const el = document.getElementById("fuTabContent");
+            if (!el) return;
+            const emails = c.emails || [];
+            let html = '<div style="padding:0;">';
+            if (emails.length === 0) {
+                html += '<div class="list-empty">暂无邮件</div>';
+            } else {
+                emails.slice(0, 20).forEach(function(e) {
+                    const pClass = e.priority || "cold";
+                    html += '<div class="email-item" onclick="viewEmail(' + e.id + ')">';
+                    html += '<div class="ei-avatar ' + pClass + '">' + esc((e.sender || 'U')[0].toUpperCase()) + '</div>';
+                    html += '<div class="ei-info">';
+                    html += '<div class="ei-name">' + esc(e.sender || '') + '</div>';
+                    html += '<div class="ei-subject">' + esc(e.subject || '') + '</div>';
+                    html += '<div class="ei-extra"><span class="ei-time">' + formatTime(e.received_at) + '</span></div>';
+                    html += '</div>';
+                    html += '<div class="ei-meta"><span class="ei-dot ' + pClass + '"></span></div>';
+                    html += '</div>';
+                });
+            }
+            html += '</div>';
+            el.innerHTML = html;
+        } catch(e) {
+            const el = document.getElementById("fuTabContent");
+            if (el) el.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;">加载邮件失败</div>';
+        }
+    }
+
+    async function markFollowupDone(id) {
+        try {
+            await apiPost('/followups/' + id + '/status', { status: 'done' });
+            toast('已标记完成', 'success');
+            loadFollowupList();
+            // 重新渲染中间内容
+            const fu = followupListData.find(function(f) { return f.id === id; });
+            if (fu) { fu.status = 'done'; renderFollowupMiddle(fu); }
+        } catch(e) {
+            toast('操作失败: ' + e.message, 'error');
+        }
+    }
+
+    async function generateAllFollowups() {
+        try {
+            const r = await apiPost('/followups/generate', {});
+            toast('已生成 ' + (r.generated || 0) + ' 条跟进计划', 'success');
+            loadFollowupList();
+        } catch(e) {
+            toast('生成失败: ' + e.message, 'error');
+        }
+    }
+
+    function renderMiddleEmpty(title, hint) {
+        document.getElementById("middleContent").innerHTML =
+            '<div class="detail-empty">' +
+            '<div class="empty-icon"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></div>' +
+            '<div class="empty-text">' + title + '</div>' +
+            '<div class="empty-hint">' + hint + '</div>' +
+            '</div>';
+    }
+
+    // ── 返回（历史回退） ──
+    function goBack() {
+        if (_viewHistory.length > 0) {
+            const prev = _viewHistory.pop();
+            currentView = prev.view;
+            currentDetailView = prev.detailView;
+            selectedCustomerId = prev.customerId;
+            selectedEmailId = prev.emailId;
+            customerDetailData = prev.customerData;
+            emailDetailData = prev.emailData;
+            searchQuery = prev.searchQ;
+            priorityFilter = prev.pFilter;
+            rightFilter = prev.rFilter;
+            document.getElementById("searchInput").value = searchQuery;
+            document.getElementById("priorityFilter").value = priorityFilter;
+            document.getElementById("rightFilter").value = rightFilter;
+
+            // 更新导航高亮
+            document.querySelectorAll(".nav-stat-item").forEach(function(el) { el.classList.remove("active"); });
+        document.querySelectorAll(".dash-nav-item[data-dash]").forEach(function(el) { el.classList.toggle("active", el.getAttribute("data-dash") === currentView || (currentView === "customers" && el.getAttribute("data-dash") === "customers") || (currentView === "emails" && el.getAttribute("data-dash") === "emails") || (currentView === "whatsapp" && el.getAttribute("data-dash") === "customers") || (currentView === "followups" && el.getAttribute("data-dash") === "followups")); });
+        var rs2 = document.querySelector(".right-sidebar");
+        var mp2 = document.querySelector(".middle-panel");
+        if (rs2 && mp2) { var dashMode = (currentView === "dashboard" || currentView === "settings" || currentView === "ai"); rs2.style.display = dashMode ? "none" : ""; if (dashMode) mp2.style.flex = "1"; else mp2.style.flex = ""; }
+        // 恢复 middle-content 默认样式
+        var mc2 = document.getElementById("middleContent");
+        if (mc2) { mc2.style.overflow = ""; mc2.style.padding = ""; }
+            if (currentView === "customers") document.getElementById("navStatCustomers").classList.add("active");
+            else if (currentView === "emails") document.getElementById("navStatEmails").classList.add("active");
+            else if (currentView === "whatsapp") document.getElementById("navStatWa").classList.add("active");
+
+            // 如果返回到详情页，需要重新渲染详情
+            if (currentDetailView) {
+                renderView();
+            } else {
+                document.getElementById("backBtn").style.display = "none";
+                renderView();
+            }
+        } else {
+            // 没有历史，回到列表视图
+            currentDetailView = null;
+            selectedCustomerId = null;
+            selectedEmailId = null;
+            customerDetailData = null;
+            emailDetailData = null;
+            document.getElementById("backBtn").style.display = "none";
+            renderView();
+        }
+    }
+
+    // ── 查看客户详情（在中间栏显示） ──
+    async function viewCustomer(customerId) {
+        // 保存当前视图到历史栈
+        _pushHistory();
+        selectedCustomerId = customerId;
+        currentDetailView = "customer";
+        document.getElementById("backBtn").style.display = "inline-flex";
+        document.getElementById("middleContent").innerHTML =
+            '<div class="loading"><div class="spinner"></div><div>加载客户详情...</div></div>';
+
+        try {
+            const r = await fetch(API + "/customers/" + customerId, { headers: authHeaders() });
+            if (!r.ok) throw new Error("加载失败");
+            customerDetailData = await r.json();
+            renderCustomerDetail();
+        } catch(e) {
+            document.getElementById("middleContent").innerHTML =
+                '<div class="detail-empty"><div class="empty-icon"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="empty-text">加载失败</div><div class="empty-hint">' + esc(e.message) + '</div></div>';
+        }
+    }
+
+    function renderCustomerDetail() {
+        const c = customerDetailData;
+        if (!c) return;
+
+        let html = '<div class="detail-page-container" style="padding:16px;">';
+
+        // 客户头部信息
+        html += '<div class="detail-page-header-card">';
+        html += '<div class="dh-top"><span class="badge-inline ' + priorityClass(c.priority) + '">' + priorityLabel(c.priority) + '</span>' + (c.grade ? '<span class="grade-badge grade-' + String(c.grade).toLowerCase() + '">' + esc(c.grade) + ' 级</span>' : '') + '</div>';
+        html += '<h2>' + esc(c.name || c.email) + '</h2>';
+        html += '<div class="meta">';
+        html += '<span><span class="meta-label">邮箱:</span> <span class="meta-value">' + esc(c.email || "-") + '</span></span>';
+        if (c.company) html += '<span><span class="meta-label">公司:</span> <span class="meta-value">' + esc(c.company) + '</span></span>';
+        if (c.country) html += '<span><span class="meta-label">国家:</span> <span class="meta-value">' + esc(c.country) + '</span></span>';
+        if (c.last_contact_at) html += '<span><span class="meta-label">最近联系:</span> <span class="meta-value">' + formatTime(c.last_contact_at) + '</span></span>';
+        html += '</div>';
+        html += '<div class="dh-actions">';
+        html += '<button class="detail-action-btn primary" onclick="buildProfile()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg> 构建客户画像</button>';
+        html += '<button class="detail-action-btn secondary" onclick="openEditDialog()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg> 编辑</button>';
+        html += '<button class="detail-action-btn" onclick="openChatDialog()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg> AI 对话</button>';
+        html += '<button class="detail-action-btn secondary" onclick="openFollowupDialog(' + c.id + ')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg> 跟进计划</button>';
+        html += '<button class="detail-action-btn danger" onclick="deleteCustomer()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> 删除客户</button>';
+        html += '</div>';
+        html += '</div>';
+
+        // 客户画像
+        if (c.profile_summary) {
+            try {
+                const profile = JSON.parse(c.profile_summary);
+                html += '<div class="detail-page-card" style="margin-top:16px;">';
+                html += '<h3>客户画像</h3>';
+                if (profile.customer_type) html += '<div class="cd-field"><div class="field-label">客户类型</div><div class="field-value">' + esc(profile.customer_type) + '</div></div>';
+                if (profile.company_size) html += '<div class="cd-field"><div class="field-label">公司规模</div><div class="field-value">' + esc(profile.company_size) + '</div></div>';
+                if (profile.history_summary) html += '<div class="cd-field"><div class="field-label">历史合作摘要</div><div class="field-value">' + esc(profile.history_summary) + '</div></div>';
+                if (profile.communication_style) html += '<div class="cd-field"><div class="field-label">沟通风格</div><div class="field-value">' + esc(profile.communication_style) + '</div></div>';
+                if (profile.risks_and_opportunities) html += '<div class="cd-field"><div class="field-label">风险与机会</div><div class="field-value">' + esc(profile.risks_and_opportunities) + '</div></div>';
+                if (profile.suggested_priority) html += '<div class="cd-field"><div class="field-label">建议优先级</div><div class="field-value">' + priorityLabel(profile.suggested_priority) + '</div></div>';
+                html += '</div>';
+            } catch(e) {}
+        }
+
+        // 邮件历史
+        if (c.emails && c.emails.length > 0) {
+            html += '<div class="detail-page-card" style="margin-top:16px;">';
+            html += '<h3>邮件历史 (' + c.emails.length + ')</h3>';
+            html += '<ul class="cd-timeline">';
+            c.emails.forEach(function(em) {
+                html += '<li onclick="viewEmail(' + em.id + ')" style="cursor:pointer;">';
+                html += '<div class="tl-time">' + formatTime(em.received_at) + '</div>';
+                html += '<div class="tl-subject">' + (em.analysis && em.analysis.priority ? '<span class="tl-dot ' + priorityClass(em.analysis.priority) + '"></span>' : '') + esc(em.subject || "(无主题)") + '</div>';
+                if (em.analysis && em.analysis.summary) {
+                    html += '<div class="tl-summary">' + esc(em.analysis.summary) + '</div>';
+                }
+                html += '</li>';
+            });
+            html += '</ul>';
+            html += '</div>';
+        }
+
+        // WhatsApp 对话区
+        html += '<div class="detail-page-card" id="waSection" style="margin-top:16px;">';
+        html += '<h3>WhatsApp 对话</h3>';
+        html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
+        html += '<button class="btn btn-primary btn-sm" onclick="openWaImportForCustomer()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 导入聊天记录</button>';
+        html += '<button class="wa-analyze-btn" id="waAnalyzeBtn" onclick="analyzeWaChat()" style="margin-top:0;"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg> AI 分析对话</button>';
+        html += '</div>';
+        html += '<div id="waContent"></div>';
+        html += '<div id="waAnalysisSection"></div>';
+        html += '</div>';
+
+        html += '</div>';
+
+        document.getElementById("middleContent").innerHTML = html;
+        renderWaSection();
+    }
+
+    function renderWaSection() {
+        const content = document.getElementById("waContent");
+        const analysisSection = document.getElementById("waAnalysisSection");
+        if (!content) return;
+
+        const waMessages = (customerDetailData && customerDetailData.wa_messages) || [];
+
+        if (waMessages.length > 0) {
+            let html = '<div class="wa-chat-container">';
+            waMessages.forEach(function(m) {
+                const isMe = m.is_from_me;
+                html += '<div class="wa-chat-msg ' + (isMe ? "me" : "them") + '">';
+                html += '<div class="wa-chat-bubble ' + (isMe ? "me" : "them") + '">';
+                html += '<div class="wa-chat-text">' + esc(m.message_text || "") + '</div>';
+                html += '<div class="wa-chat-meta">' + formatTime(m.timestamp) + '</div>';
+                html += '</div>';
+                html += '</div>';
+            });
+            html += '</div>';
+            content.innerHTML = html;
+        } else {
+            content.innerHTML = '<div class="content-empty">暂无 WhatsApp 聊天记录，点击上方按钮导入</div>';
+        }
+
+        if (analysisSection) {
+            const waAnalysis = (customerDetailData && customerDetailData.wa_analysis) || null;
+            if (waAnalysis) {
+                // 情感倾向中英文映射
+                const sentimentMap = {"positive": "积极", "neutral": "中性", "negative": "消极", "积极": "积极", "中性": "中性", "消极": "消极"};
+                const sentimentText = sentimentMap[waAnalysis.sentiment] || waAnalysis.sentiment || "-";
+                let html = '<div class="wa-analysis-card detail-page-style" style="margin-top:16px;">';
+                html += '<div class="wa-analysis-title"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg> WhatsApp AI 分析结果</div>';
+                if (waAnalysis.sentiment) {
+                    html += '<div class="wa-analysis-field"><div class="wa-analysis-label">情感倾向</div><div class="wa-analysis-value">' + esc(sentimentText) + '</div></div>';
+                }
+                if (waAnalysis.intent) {
+                    html += '<div class="wa-analysis-field"><div class="wa-analysis-label">对话意图</div><div class="wa-analysis-value">' + esc(waAnalysis.intent) + '</div></div>';
+                }
+                if (waAnalysis.priority) {
+                    html += '<div class="wa-analysis-field"><div class="wa-analysis-label">优先级</div><div class="wa-analysis-value"><span class="badge-inline ' + priorityClass(waAnalysis.priority) + '">' + priorityLabel(waAnalysis.priority) + '</span></div></div>';
+                }
+                if (waAnalysis.summary) {
+                    html += '<div class="wa-analysis-field"><div class="wa-analysis-label">对话摘要</div><div class="wa-analysis-value">' + esc(waAnalysis.summary) + '</div></div>';
+                }
+                if (waAnalysis.key_topics && waAnalysis.key_topics.length > 0) {
+                    html += '<div class="wa-analysis-field"><div class="wa-analysis-label">关键话题</div><div class="wa-analysis-value">' + waAnalysis.key_topics.map(esc).join("、") + '</div></div>';
+                }
+                if (waAnalysis.next_action) {
+                    html += '<div class="wa-analysis-field"><div class="wa-analysis-label">下一步建议</div><div class="wa-analysis-value">' + esc(waAnalysis.next_action) + '</div></div>';
+                }
+                if (waAnalysis.suggested_reply) {
+                    html += '<div class="wa-analysis-field"><div class="wa-analysis-label">建议回复</div><div class="wa-suggested-reply detail-page-style">' + esc(waAnalysis.suggested_reply) + '</div></div>';
+                }
+                html += '</div>';
+                analysisSection.innerHTML = html;
+            } else {
+                analysisSection.innerHTML = '';
+            }
+        }
+    }
+
+    // ── 查看邮件详情（在中间栏显示） ──
+    async function viewEmail(emailId) {
+        // 保存当前视图到历史栈
+        _pushHistory();
+        selectedEmailId = emailId;
+        _emailAiAutoAnalyzed = false;
+        _emailAiHistory = [];
+        _emailConvId = null;
+        currentDetailView = "email";
+        document.getElementById("backBtn").style.display = "inline-flex";
+        document.getElementById("middleContent").innerHTML =
+            '<div class="loading"><div class="spinner"></div><div>加载邮件详情...</div></div>';
+
+        try {
+            const r = await fetch(API + "/emails/" + emailId, { headers: authHeaders() });
+            if (!r.ok) throw new Error("加载失败");
+            emailDetailData = await r.json();
+            renderEmailDetail();
+        } catch(e) {
+            document.getElementById("middleContent").innerHTML =
+                '<div class="detail-empty"><div class="empty-icon"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="empty-text">加载失败</div><div class="empty-hint">' + esc(e.message) + '</div></div>';
+        }
+    }
+
+    function renderEmailDetail() {
+        const e = emailDetailData;
+        if (!e) return;
+        const a = e.analysis;
+
+        let html = '<div class="detail-page-container" style="padding:16px;">';
+
+        // 邮件头部
+        html += '<div class="detail-page-header-card">';
+        const _emailPrio = a ? a.priority : (e.ai_priority || "cold");
+        html += '<div class="dh-top"><div class="prio-edit-wrap"><span class="badge-inline ' + priorityClass(_emailPrio) + '" id="emailPrioBadge" onclick="toggleEmailPrioMenu(event)" style="cursor:pointer;" title="点击修改优先级">' + priorityLabel(_emailPrio) + ' <svg class="icon-sm" viewBox="0 0 24 24" style="width:12px;height:12px;display:inline;vertical-align:middle;"><polyline points="6 9 12 15 18 9"/></svg></span>';
+        html += '<div id="emailPrioMenu" style="display:none;position:absolute;top:100%;left:0;background:#fff;border:1px solid #E6EAF0;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:10;min-width:120px;">';
+        html += '<div class="prio-menu-item" onclick="updateEmailPriority(' + e.id + ',\'hot\')" style="padding:8px 14px;cursor:pointer;font-size:13px;color:#ef5555;font-weight:600;">高优先级</div>';
+        html += '<div class="prio-menu-item" onclick="updateEmailPriority(' + e.id + ',\'warm\')" style="padding:8px 14px;cursor:pointer;font-size:13px;color:#df9b19;font-weight:600;">中优先级</div>';
+        html += '<div class="prio-menu-item" onclick="updateEmailPriority(' + e.id + ',\'cold\')" style="padding:8px 14px;cursor:pointer;font-size:13px;color:#7890ad;font-weight:600;">低优先级</div>';
+        html += '</div></div>';
+        if (a && a.replied) {
+            html += '<span class="badge-replied">已回复</span>';
+        }
+        if (a && a.no_reply_needed) {
+            html += '<span class="badge-noreply">无需回复</span>';
+        }
+        html += '</div>';
+        html += '<h2>' + esc(e.subject || "(无主题)") + '</h2>';
+        html += '<div class="meta">';
+        html += '<span><span class="meta-label">发件人:</span> <span class="meta-value">' + esc(e.sender || "") + '</span></span>';
+        if (e.customer_name) {
+            html += '<span><span class="meta-label">客户:</span> <span class="meta-value" style="color:var(--primary);cursor:pointer;" onclick="viewCustomer(' + e.customer_id + ')">' + esc(e.customer_name) + '</span></span>';
+        }
+        html += '<span><span class="meta-label">时间:</span> <span class="meta-value">' + formatTime(e.received_at) + '</span></span>';
+        html += '</div>';
+
+        // 操作按钮
+        html += '<div class="dh-actions">';
+        if (a && !a.replied) {
+            html += '<button class="detail-action-btn success" onclick="markReplied()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> 标记为已回复</button>';
+        } else if (a && a.replied) {
+            html += '<button class="detail-action-btn secondary" onclick="unmarkReplied()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg> 取消已回复标记</button>';
+        }
+        html += '<span class="draft-lang-wrap">草稿语言<button class="draft-lang active" data-lang="en" onclick="setDraftLang(&#39;en&#39;, this)">英文</button><button class="draft-lang" data-lang="zh" onclick="setDraftLang(&#39;zh&#39;, this)">中文</button></span>';
+        html += '<button class="detail-action-btn primary" onclick="reanalyze()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg> 重新 AI 分析</button>';
+        html += '<button class="detail-action-btn" onclick="openReply()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg> 回复邮件</button>';
+        html += '<button class="detail-action-btn danger" onclick="deleteEmail()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> 删除邮件</button>';
+        html += '</div>';
+        html += '</div>';
+
+        // 邮件正文
+        html += '<div class="detail-page-card" style="margin-top:16px;">';
+        html += '<h3>邮件正文</h3>';
+        html += '<div class="detail-page-email-body">' + esc(cleanText(e.body_text || "(无正文内容)")) + '</div>';
+        html += '</div>';
+
+        // AI 分析结果
+        if (a && a.intent) {
+            html += '<div class="detail-page-analysis-card" style="margin-top:16px;">';
+            html += '<h3><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg> AI 分析结果</h3>';
+            html += '<div class="ed-analysis-row"><div class="ar-label">意图</div><div class="ar-value">' + esc(a.intent || "-") + '</div></div>';
+            html += '<div class="ed-analysis-row"><div class="ar-label">优先级</div><div class="ar-value"><span class="badge-inline ' + priorityClass(a.priority) + '">' + priorityLabel(a.priority) + '</span></div></div>';
+            html += '<div class="ed-analysis-row"><div class="ar-label">摘要</div><div class="ar-value">' + esc(a.summary || "-") + '</div></div>';
+            html += '<div class="ed-analysis-row"><div class="ar-label">下一步建议</div><div class="ar-value">' + esc(a.next_action || "-") + '</div></div>';
+            html += '</div>';
+
+            // 回复草稿
+            if (a.reply_draft) {
+                html += '<div class="detail-page-draft-box" style="margin-top:16px;">';
+                html += '<h3><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg> AI 回复草稿 <span class="draft-lang-badge">' + (draftLang === 'zh' ? '中文' : '英文') + '</span></h3>';
+                html += '<textarea id="replyDraft" rows="8">' + esc(a.reply_draft) + '</textarea>';
+                html += '<div class="ed-draft-actions">';
+                html += '<button class="detail-action-btn primary" onclick="copyDraft()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> 复制草稿</button>';
+                html += '<button class="detail-action-btn" onclick="openReplyWithDraft()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg> 用此草稿回复</button>';
+                html += '</div>';
+                html += '</div>';
+            }
+        } else {
+            html += '<div class="detail-page-card" style="margin-top:16px;"><div class="ed-no-analysis">';
+            html += '<div class="empty-icon"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></div>';
+            html += '<p>此邮件尚未进行 AI 分析</p>';
+            html += '<button class="detail-action-btn primary" style="margin-top:12px;" onclick="reanalyze()"><svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg> 开始 AI 分析</button>';
+            html += '</div></div>';
+        }
+
+        // 邮件专属 AI 助手（可折叠）
+        html += '<div class="email-ai-assistant" id="emailAiAssistant" style="margin-top:16px;">';
+        html += '<div class="eaa-header" onclick="toggleEmailAi()">';
+        html += '<div class="eaa-header-left">';
+        html += '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>';
+        html += '<span class="eaa-title">AI 邮件助手</span>';
+        html += '<span class="eaa-badge">针对此邮件</span>';
+        html += '</div>';
+        html += '<div class="eaa-header-right">';
+        html += '<svg class="eaa-arrow" id="eaaArrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+        html += '</div>';
+        html += '</div>';
+        html += '<div class="eaa-body" id="eaaBody" style="display:none;">';
+        // 快捷操作
+        html += '<div class="eaa-quick-actions">';
+        html += '<button class="eaa-q-btn" onclick="emailAiQuickAction(\'润色回复\')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> 润色回复</button>';
+        html += '<button class="eaa-q-btn" onclick="emailAiQuickAction(\'翻译成中文\')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg> 翻译中文</button>';
+        html += '<button class="eaa-q-btn" onclick="emailAiQuickAction(\'翻译成英文\')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg> 翻译英文</button>';
+        html += '<button class="eaa-q-btn" onclick="emailAiQuickAction(\'生成详细摘要\')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><line x1="8" y1="9" x2="10" y2="9"/></svg> 详细摘要</button>';
+        html += '<button class="eaa-q-btn" onclick="emailAiQuickAction(\'提取关键信息：价格、数量、时间、需求\')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 提取关键信息</button>';
+        html += '<button class="eaa-q-btn" onclick="emailAiQuickAction(\'生成跟进记录并更新客户画像\')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg> 生成跟进</button>';
+        html += '<button class="eaa-q-btn" onclick="emailAiQuickAction(\'写一封礼貌的拒绝回复\')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> 礼貌拒绝</button>';
+        html += '<button class="eaa-q-btn" onclick="emailAiQuickAction(\'分析客户意图和购买意向\')"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 15 8.5 22 9.3l-5 4.9 1.2 7L12 17.8 5.8 21.2 7 14.2 2 9.3l7-0.8z"/></svg> 意图分析</button>';
+        html += '</div>';
+        // 会话切换条
+        html += '<div class="eaa-conv-bar">';
+        html += '<div class="eaa-conv-list" id="eaaConvList"></div>';
+        html += '</div>';
+        // 聊天区域
+        html += '<div class="eaa-chat-body" id="eaaChatBody"></div>';
+        // 输入框
+        html += '<div class="eaa-chat-input">';
+        html += '<input id="eaaInput" placeholder="针对这封邮件问 AI 任何问题…" onkeydown="if(event.key===\'Enter\')sendEmailAiMessage()">';
+        html += '<button class="btn btn-primary ai-send-btn" onclick="sendEmailAiMessage()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>';
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+
+        html += '</div>';
+
+        document.getElementById("middleContent").innerHTML = html;
+        // 加载邮件AI会话列表
+        loadEmailConvList();
+    }
+
+    // ── 邮件专属 AI 助手 ──
+    var _emailAiExpanded = false;
+    var _emailConvId = null;
+    var _emailConvList = [];
+    var _emailAiHistory = [];
+    var _emailAiAutoAnalyzed = false;
+
+    function toggleEmailAi() {
+        _emailAiExpanded = !_emailAiExpanded;
+        var body = document.getElementById("eaaBody");
+        var arrow = document.getElementById("eaaArrow");
+        if (body) body.style.display = _emailAiExpanded ? "" : "none";
+        if (arrow) arrow.style.transform = _emailAiExpanded ? "rotate(180deg)" : "";
+        // 首次展开时自动分析邮件
+        if (_emailAiExpanded && !_emailAiAutoAnalyzed && selectedEmailId) {
+            _emailAiAutoAnalyzed = true;
+            setTimeout(function() {
+                autoAnalyzeEmail();
+            }, 300);
+        }
+    }
+
+    async function loadEmailConvList() {
+        if (!selectedEmailId) return;
+        try {
+            var r = await apiGet("/conversations?conv_type=email&email_id=" + selectedEmailId);
+            _emailConvList = r.items || r.conversations || [];
+            renderEmailConvList();
+            // 如果有历史会话，选中第一个；否则保持新对话状态
+            if (_emailConvList.length > 0 && !_emailConvId) {
+                selectEmailConv(_emailConvList[0].id);
+            }
+        } catch(e) {
+            // 静默失败
+        }
+    }
+
+    function renderEmailConvList() {
+        var el = document.getElementById("eaaConvList");
+        if (!el) return;
+        if (!_emailConvList || _emailConvList.length === 0) {
+            el.innerHTML = '<span class="eaa-conv-empty">暂无历史对话</span>';
+            return;
+        }
+        var html = "";
+        _emailConvList.forEach(function(c) {
+            var active = _emailConvId === c.id;
+            html += '<span class="eaa-conv-chip ' + (active ? 'active' : '') + '" onclick="selectEmailConv(' + c.id + ')" title="' + esc(c.title) + '">';
+            html += esc(c.title.length > 12 ? c.title.substring(0, 12) + "..." : c.title);
+            html += '<button class="eaa-conv-del" onclick="event.stopPropagation(); deleteEmailConv(' + c.id + ')" title="删除对话">×</button>';
+            html += '</span>';
+        });
+        el.innerHTML = html;
+    }
+
+    async function selectEmailConv(convId) {
+        _emailConvId = convId;
+        _emailAiHistory = [];
+        renderEmailConvList();
+        try {
+            var r = await apiGet("/conversations/" + convId + "/messages");
+            var msgs = r.messages || [];
+            var body = document.getElementById("eaaChatBody");
+            if (!body) return;
+            body.innerHTML = "";
+            msgs.forEach(function(m) {
+                appendEmailAiMsg(m.role, m.content, m.action_results);
+                _emailAiHistory.push({ role: m.role === "user" ? "user" : "assistant", content: m.content || "" });
+            });
+        } catch(e) {
+            toast("加载对话失败: " + e.message, "error");
+        }
+    }
+
+    function newEmailAiConv() {
+        _emailConvId = null;
+        _emailAiHistory = [];
+        renderEmailConvList();
+        var body = document.getElementById("eaaChatBody");
+        if (body) body.innerHTML = '<div class="eaa-welcome"><div class="eaa-welcome-icon">💡</div><div class="eaa-welcome-text">开始新对话，向 AI 询问关于这封邮件的任何问题</div></div>';
+    }
+
+    async function deleteEmailConv(convId) {
+        if (!confirm("确定删除这个对话吗？删除后可在回收站恢复。")) return;
+        try {
+            await fetch(API + "/conversations/" + convId, { method: "DELETE", headers: authHeaders() });
+            toast("已删除对话", "success");
+            if (_emailConvId === convId) {
+                _emailConvId = null;
+                var body = document.getElementById("eaaChatBody");
+                if (body) body.innerHTML = '<div class="eaa-welcome"><div class="eaa-welcome-icon">💡</div><div class="eaa-welcome-text">开始新对话，向 AI 询问关于这封邮件的任何问题</div></div>';
+            }
+            loadEmailConvList();
+        } catch(e) {
+            toast("删除失败: " + e.message, "error");
+        }
+    }
+
+    function emailAiQuickAction(action) {
+        sendEmailAiMessage(action);
+    }
+
+    function appendEmailAiMsg(role, text, actionResults) {
+        var body = document.getElementById("eaaChatBody");
+        if (!body) return;
+        var div = document.createElement("div");
+        div.className = "chat-msg " + (role === "user" ? "me" : "ai");
+        var bubble = document.createElement("div");
+        bubble.className = "chat-bubble";
+        if (role === "ai") {
+            bubble.innerHTML = formatAiMessage(text);
+            var copyBtn = document.createElement("button");
+            copyBtn.className = "chat-copy-btn";
+            copyBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+            copyBtn.title = "复制";
+            copyBtn.onclick = function() { navigator.clipboard.writeText(text); toast("已复制", "success"); };
+            bubble.appendChild(copyBtn);
+        } else {
+            bubble.textContent = text;
+        }
+        div.appendChild(bubble);
+        body.appendChild(div);
+        body.scrollTop = body.scrollHeight;
+    }
+
+    async function sendEmailAiMessage(presetText) {
+        var input = document.getElementById("eaaInput");
+        var text = (presetText !== undefined ? presetText : (input ? input.value.trim() : "")).toString();
+        if (!text) return;
+        if (input && presetText === undefined) input.value = "";
+        appendEmailAiMsg("user", text);
+        var body = document.getElementById("eaaChatBody");
+        var tip = document.createElement("div");
+        tip.className = "chat-msg ai";
+        tip.innerHTML = '<div class="chat-bubble chat-typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>';
+        body.appendChild(tip);
+        body.scrollTop = body.scrollHeight;
+        try {
+            var r = await fetch(API + "/ai/agent", {
+                method: "POST",
+                headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+                body: JSON.stringify({
+                    message: text,
+                    customer_id: emailDetailData && emailDetailData.customer_id ? emailDetailData.customer_id : null,
+                    email_id: selectedEmailId,
+                    conversation_id: _emailConvId,
+                    conv_type: "email",
+                    history: _emailAiHistory.slice(-10)
+                }),
+            });
+            var d = await r.json();
+            tip.remove();
+            // 显示动作结果
+            if (d.actions && d.actions.length) {
+                var wrap = document.createElement("div");
+                wrap.className = "agent-results";
+                d.actions.forEach(function(a) {
+                    var s = document.createElement("span");
+                    s.className = "agent-result-chip " + (a.ok ? "" : "agent-result-fail");
+                    var icon = a.ok
+                        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><polyline points="20 6 9 17 4 12"/></svg>'
+                        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+                    s.innerHTML = icon + esc(a.msg || (a.ok ? "已执行" : "执行失败"));
+                    wrap.appendChild(s);
+                });
+                body.appendChild(wrap);
+            }
+            // 打字机效果
+            var replyText = d.reply || "（无回复）";
+            await typewriterEmailEffect(replyText);
+            // 保存到历史
+            _emailAiHistory.push({ role: "user", content: text });
+            _emailAiHistory.push({ role: "assistant", content: replyText });
+            // 更新会话ID和列表
+            if (d.conversation_id) {
+                _emailConvId = d.conversation_id;
+                loadEmailConvList();
+            }
+            body.scrollTop = body.scrollHeight;
+        } catch(e) {
+            tip.remove();
+            appendEmailAiMsg("ai", "请求失败：" + e.message + "。请检查网络连接后重试。");
+        }
+    }
+
+    async function autoAnalyzeEmail() {
+        var body = document.getElementById("eaaChatBody");
+        if (!body) return;
+        // 如果已有消息（从历史会话加载），不自动分析
+        if (body.children.length > 0 && body.querySelector(".chat-msg")) return;
+        // 显示分析中的提示
+        var tip = document.createElement("div");
+        tip.className = "chat-msg ai";
+        tip.innerHTML = '<div class="chat-bubble chat-typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>';
+        body.appendChild(tip);
+        body.scrollTop = body.scrollHeight;
+        try {
+            var r = await fetch(API + "/ai/agent", {
+                method: "POST",
+                headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+                body: JSON.stringify({
+                    message: "请分析这封邮件的意图、优先级、摘要，并给出回复建议和下一步动作。",
+                    customer_id: emailDetailData && emailDetailData.customer_id ? emailDetailData.customer_id : null,
+                    email_id: selectedEmailId,
+                    conversation_id: _emailConvId,
+                    conv_type: "email",
+                    history: []
+                }),
+            });
+            var d = await r.json();
+            tip.remove();
+            // 显示动作结果
+            if (d.actions && d.actions.length) {
+                var wrap = document.createElement("div");
+                wrap.className = "agent-results";
+                d.actions.forEach(function(a) {
+                    var s = document.createElement("span");
+                    s.className = "agent-result-chip " + (a.ok ? "" : "agent-result-fail");
+                    var icon = a.ok
+                        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><polyline points="20 6 9 17 4 12"/></svg>'
+                        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+                    s.innerHTML = icon + esc(a.msg || (a.ok ? "已执行" : "执行失败"));
+                    wrap.appendChild(s);
+                });
+                body.appendChild(wrap);
+            }
+            var replyText = d.reply || "（无回复）";
+            await typewriterEmailEffect(replyText);
+            _emailAiHistory.push({ role: "user", content: "请分析这封邮件的意图、优先级、摘要，并给出回复建议和下一步动作。" });
+            _emailAiHistory.push({ role: "assistant", content: replyText });
+            if (d.conversation_id) {
+                _emailConvId = d.conversation_id;
+                loadEmailConvList();
+            }
+            body.scrollTop = body.scrollHeight;
+        } catch(e) {
+            tip.remove();
+            appendEmailAiMsg("ai", "自动分析失败，请手动提问。");
+        }
+    }
+
+    async function typewriterEmailEffect(text) {
+        var body = document.getElementById("eaaChatBody");
+        if (!body) return;
+        var div = document.createElement("div");
+        div.className = "chat-msg ai";
+        var bubble = document.createElement("div");
+        bubble.className = "chat-bubble";
+        div.appendChild(bubble);
+        body.appendChild(div);
+        var chars = text.split('');
+        var displayed = '';
+        for (var i = 0; i < chars.length; i++) {
+            displayed += chars[i];
+            bubble.innerHTML = formatAiMessage(displayed);
+            body.scrollTop = body.scrollHeight;
+            var delay = chars.length > 200 ? 5 : 15;
+            await new Promise(function(r) { setTimeout(r, delay); });
+        }
+        var copyBtn = document.createElement("button");
+        copyBtn.className = "chat-copy-btn";
+        copyBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        copyBtn.title = "复制";
+        copyBtn.onclick = function() { navigator.clipboard.writeText(text); toast("已复制", "success"); };
+        bubble.appendChild(copyBtn);
+    }
+
+    // ── 邮件操作 ──
+    function toggleEmailPrioMenu(e) {
+        e.stopPropagation();
+        var menu = document.getElementById("emailPrioMenu");
+        if (menu) menu.style.display = (menu.style.display === "none") ? "block" : "none";
+    }
+    document.addEventListener("click", function() {
+        var menu = document.getElementById("emailPrioMenu");
+        if (menu) menu.style.display = "none";
+    });
+    async function updateEmailPriority(emailId, priority) {
+        try {
+            await apiPost("/email/update-priority", { email_id: emailId, priority: priority });
+            var menu = document.getElementById("emailPrioMenu");
+            if (menu) menu.style.display = "none";
+            // 更新本地数据
+            if (emailDetailData) {
+                emailDetailData.ai_priority = priority;
+                if (emailDetailData.analysis) {
+                    emailDetailData.analysis.priority = priority;
+                } else {
+                    emailDetailData.analysis = { priority: priority, replied: 0, no_reply_needed: 0 };
+                }
+            }
+            // 更新badge显示
+            var badge = document.getElementById("emailPrioBadge");
+            if (badge) {
+                badge.className = "badge-inline " + priorityClass(priority);
+                badge.innerHTML = priorityLabel(priority) + ' <svg class="icon-sm" viewBox="0 0 24 24" style="width:12px;height:12px;display:inline;vertical-align:middle;"><polyline points="6 9 12 15 18 9"/></svg>';
+            }
+            toast("优先级已修改为：" + priorityLabel(priority), "success");
+        } catch(e) {
+            toast("修改优先级失败: " + e.message, "error");
+        }
+    }
+
+    async function markReplied() {
+        try {
+            await apiPost("/email/mark-replied", { email_id: parseInt(selectedEmailId) });
+            toast("已标记为已回复", "success");
+            await viewEmail(selectedEmailId);
+        } catch(e) {
+            toast("操作失败: " + e.message, "error");
+        }
+    }
+
+    async function unmarkReplied() {
+        try {
+            await apiPost("/email/unmark-replied", { email_id: parseInt(selectedEmailId) });
+            toast("已取消回复标记", "success");
+            await viewEmail(selectedEmailId);
+        } catch(e) {
+            toast("操作失败: " + e.message, "error");
+        }
+    }
+
+    let draftLang = "en";
+    function setDraftLang(lang, btn) {
+        draftLang = lang;
+        document.querySelectorAll(".draft-lang").forEach(function(b) { b.classList.remove("active"); });
+        if (btn) btn.classList.add("active");
+        document.querySelectorAll(".draft-lang-badge").forEach(function(b) { b.textContent = lang === "zh" ? "中文" : "英文"; });
+    }
+
+    async function reanalyze() {
+        toast("AI 分析中...", "info");
+        try {
+            await apiPost("/email/analyze", { email_id: parseInt(selectedEmailId), language: draftLang });
+            toast("AI 分析完成", "success");
+            await viewEmail(selectedEmailId);
+            await loadAllData();
+        } catch(e) {
+            toast("分析失败: " + e.message, "error");
+        }
+    }
+
+    async function deleteEmail() {
+        if (!confirm("确定删除此邮件吗？")) return;
+        try {
+            const r = await fetch(API + "/emails/" + selectedEmailId, {
+                method: "DELETE",
+                headers: authHeaders(),
+            });
+            if (r.ok) {
+                toast("邮件已删除", "success");
+                goBack();
+                await loadAllData();
+            } else {
+                toast("删除失败", "error");
+            }
+        } catch(e) {
+            toast("网络错误", "error");
+        }
+    }
+
+    function copyDraft() {
+        const ta = document.getElementById("replyDraft");
+        if (ta) {
+            ta.select();
+            document.execCommand("copy");
+            toast("草稿已复制到剪贴板", "success");
+        }
+    }
+
+    async function openReply() {
+        try {
+            const r = await fetch(API + "/email/compose-url", { headers: authHeaders() });
+            if (r.ok) {
+                const d = await r.json();
+                if (d.compose_url) {
+                    window.open(d.compose_url, "_blank");
+                    return;
+                }
+            }
+        } catch(e) {}
+        toast("无法获取回复地址", "error");
+    }
+
+    async function openReplyWithDraft() {
+        await openReply();
+    }
+
+    // ── 客户操作 ──
+    async function buildProfile() {
+        toast("正在构建客户画像...", "info");
+        try {
+            const d = await apiPost("/profile/build", { customer_id: parseInt(selectedCustomerId) });
+            await viewCustomer(selectedCustomerId);
+            toast("客户画像已更新", "success");
+        } catch(e) {
+            toast("构建失败: " + e.message, "error");
+        }
+    }
+
+    async function deleteCustomer() {
+        if (!confirm("确定删除此客户及其所有邮件和聊天记录吗？")) return;
+        try {
+            const r = await fetch(API + "/customers/" + selectedCustomerId, {
+                method: "DELETE",
+                headers: authHeaders(),
+            });
+            if (r.ok) {
+                toast("客户已删除", "success");
+                goBack();
+                await loadAllData();
+            } else {
+                toast("删除失败", "error");
+            }
+        } catch(e) {
+            toast("网络错误", "error");
+        }
+    }
+
+    // ── WhatsApp 导入（客户详情中的导入） ──
+    function openWaImportForCustomer() {
+        openWaImport();
+    }
+
+    async function doWaImportForCustomer() {
+        const btn = document.getElementById("waImportBtn");
+        const text = document.getElementById("waTextInput").value.trim();
+
+        if (!text && !selectedWaFile) {
+            toast("请粘贴聊天记录或选择文件", "error");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<svg class="icon-sm spin" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> 导入中...';
+
+        try {
+            if (selectedWaFile) {
+                const formData = new FormData();
+                formData.append("file", selectedWaFile);
+
+                const r = await fetch(API + "/whatsapp/import/file?customer_id=" + selectedCustomerId, {
+                    method: "POST",
+                    headers: authHeaders(),
+                    body: formData,
+                });
+                const d = await r.json();
+                if (!r.ok) {
+                    throw new Error(d.detail || d.message || "导入失败");
+                }
+                toast("成功导入 " + d.imported + " 条消息", "success");
+                if (d.imported === 0 && d.total_messages > 0) {
+                    toast("消息已存在，无需重复导入", "info");
+                }
+            } else {
+                const d = await apiPost("/whatsapp/import", { text: text, customer_id: parseInt(selectedCustomerId) });
+                toast("成功导入 " + d.imported + " 条消息", "success");
+                if (d.imported === 0 && d.total_messages > 0) {
+                    toast("消息已存在，无需重复导入", "info");
+                }
+            }
+
+            closeWaImport();
+            // 重新加载客户详情
+            await viewCustomer(selectedCustomerId);
+            // 刷新 WA 对话列表
+            await loadWaConversations();
+        } catch(e) {
+            // 提供更友好的错误提示
+            let errMsg = e.message || "导入失败";
+            if (errMsg.indexOf("无法解析") >= 0) {
+                errMsg = "无法识别聊天记录格式。请确保是 WhatsApp 导出的文本，包含日期时间和发送者名称（如：2026-07-25 14:30 - 名称: 消息）";
+            }
+            toast("导入失败: " + errMsg, "error");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 导入';
+        }
+    }
+
+    // ── WhatsApp AI 分析 ──
+    async function analyzeWaChat() {
+        if (!customerDetailData || !customerDetailData.wa_messages || customerDetailData.wa_messages.length === 0) {
+            toast("请先导入 WhatsApp 聊天记录", "error");
+            return;
+        }
+
+        const btn = document.getElementById("waAnalyzeBtn");
+        btn.disabled = true;
+        btn.innerHTML = '<svg class="icon-sm spin" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> AI 分析中...';
+
+        try {
+            const d = await apiPost("/whatsapp/analyze", { customer_id: parseInt(selectedCustomerId) });
+            // 更新客户详情中的 WA 分析
+            if (customerDetailData) {
+                customerDetailData.wa_analysis = d.analysis;
+            }
+            renderWaSection();
+            toast("AI 分析完成", "success");
+        } catch(e) {
+            toast("分析失败: " + e.message, "error");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg> AI 分析对话';
+        }
+    }
+
+    // ── 拉取邮件 ──
+    async function fetchEmails() {
+        const btn = document.getElementById("fetchBtn");
+        btn.disabled = true;
+        btn.innerHTML = '<svg class="icon-sm spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> 拉取中...';
+
+        try {
+            const d = await apiPost("/emails/fetch", {});
+
+            if (d.fetched > 0 && d.new_emails && d.new_emails.length > 0) {
+                // 让用户先筛选保留/删除（广告、提醒类可直接删除，避免进客户名单）
+                openFetchReview(d.new_emails, d);
+            } else if (d.fetched > 0) {
+                toast("拉取 " + d.fetched + " 封邮件" + (d.analyzing ? "，AI 正在后台分析优先级..." : ""), "success");
+                await loadAllData();
+                renderView();
+                if (d.analyzing) startAnalyzePolling();
+            } else {
+                toast("没有新邮件", "info");
+                await loadAllData();
+                renderView();
+            }
+        } catch(e) {
+            toast("拉取失败: " + e.message, "error");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 拉取邮件';
+        }
+    }
+
+    // ── AI 分析状态轮询 ──
+    function startAnalyzePolling() {
+        if (_pollTimer) return;
+        _pollCount = 0;
+        _prevAnalyzeStats = null;
+        console.log("[轮询] 开始检测 AI 分析状态...");
+
+        _pollTimer = setInterval(async function() {
+            _pollCount++;
+            try {
+                const r = await fetch(API + "/emails/analyze-status", { headers: authHeaders() });
+                const d = await r.json();
+
+                if (d.analyzing) {
+                    await loadStats();
+                    await loadCustomers();
+                    await loadEmails();
+                    renderView();
+                    console.log("[轮询] AI 分析中，已刷新数据 (第" + _pollCount + "次)");
+                    _prevAnalyzeStats = d;
+                } else {
+                    await loadAllData();
+                    renderView();
+                    if (_prevAnalyzeStats) {
+                        const newHot = stats.hot_customers || 0;
+                        const newWarm = stats.warm_customers || 0;
+                        if (newHot > (_prevAnalyzeStats.hot || 0) || newWarm > (_prevAnalyzeStats.warm || 0)) {
+                            toast("AI 分析完成，客户优先级已更新", "success");
+                        } else {
+                            toast("AI 分析完成", "info");
+                        }
+                    } else {
+                        toast("AI 分析完成", "info");
+                    }
+                    stopAnalyzePolling();
+                }
+            } catch(e) {
+                console.error("[轮询] 错误:", e.message);
+            }
+
+            if (_pollCount >= 200) {
+                console.log("[轮询] 达到最大次数，停止");
+                stopAnalyzePolling();
+            }
+        }, 3000);
+    }
+
+    function stopAnalyzePolling() {
+        if (_pollTimer) {
+            clearInterval(_pollTimer);
+            _pollTimer = null;
+            console.log("[轮询] 已停止");
+        }
+    }
+
+    // ── 搜索和过滤 ──
+    function onSearch() {
+        searchQuery = document.getElementById("searchInput").value.trim();
+        // 如果在详情页，退出详情回到列表再搜索
+        if (currentDetailView) {
+            currentDetailView = null;
+            customerDetailData = null;
+            emailDetailData = null;
+            document.getElementById("backBtn").style.display = "none";
+            var rs = document.querySelector(".right-sidebar");
+            var mp = document.querySelector(".middle-panel");
+            if (rs) rs.style.display = "";
+            if (mp) mp.style.flex = "";
+            var mc = document.getElementById("middleContent");
+            if (mc) { mc.style.overflow = ""; mc.style.padding = ""; }
+        }
+        if (currentView === "customers") { renderCustomersView(); }
+        else if (currentView === "emails") { renderEmailsView(); }
+        else { renderView(); }
+    }
+
+    function onPriorityFilter() {
+        var newFilter = document.getElementById("priorityFilter").value;
+        // 如果在详情页，退出详情回到列表
+        if (currentDetailView) {
+            currentDetailView = null;
+            customerDetailData = null;
+            emailDetailData = null;
+            document.getElementById("backBtn").style.display = "none";
+            var rs = document.querySelector(".right-sidebar");
+            var mp = document.querySelector(".middle-panel");
+            if (rs) rs.style.display = "";
+            if (mp) mp.style.flex = "";
+            var mc = document.getElementById("middleContent");
+            if (mc) { mc.style.overflow = ""; mc.style.padding = ""; }
+        }
+        priorityFilter = newFilter;
+        rightFilter = "";
+        document.getElementById("rightFilter").value = "";
+        // 直接渲染当前视图（客户或邮件列表）
+        if (currentView === "customers") { renderCustomersView(); }
+        else if (currentView === "emails") { renderEmailsView(); }
+        else { renderView(); }
+    }
+
+    function onRightFilter() {
+        var newFilter = document.getElementById("rightFilter").value;
+        if (currentDetailView) {
+            currentDetailView = null;
+            customerDetailData = null;
+            emailDetailData = null;
+            document.getElementById("backBtn").style.display = "none";
+            var rs = document.querySelector(".right-sidebar");
+            var mp = document.querySelector(".middle-panel");
+            if (rs) rs.style.display = "";
+            if (mp) mp.style.flex = "";
+            var mc = document.getElementById("middleContent");
+            if (mc) { mc.style.overflow = ""; mc.style.padding = ""; }
+        }
+        rightFilter = newFilter;
+        priorityFilter = "";
+        document.getElementById("priorityFilter").value = "";
+        if (currentView === "customers") { renderCustomersView(); }
+        else if (currentView === "emails") { renderEmailsView(); }
+        else { renderView(); }
+    }
+
+    function filterByPriority(p) {
+        // 如果在详情页，先返回列表视图
+        if (currentDetailView) {
+            goBack();
+        }
+        // 切换优先级过滤
+        priorityFilter = (priorityFilter === p) ? "" : p;
+        document.getElementById("priorityFilter").value = priorityFilter;
+        rightFilter = "";
+        document.getElementById("rightFilter").value = "";
+        renderView();
+    }
+
+    // ── WhatsApp 导入（全局） ──
+    function openWaImport() {
+        document.getElementById("waImportOverlay").classList.add("show");
+        document.getElementById("waTextInput").value = "";
+        document.getElementById("waFileInput").value = "";
+        document.getElementById("waFileName").style.display = "none";
+        selectedWaFile = null;
+    }
+
+    function closeWaImport() {
+        document.getElementById("waImportOverlay").classList.remove("show");
+    }
+
+    function onWaFileSelected(event) {
+        const file = event.target.files[0];
+        if (file) {
+            selectedWaFile = file;
+            const nameEl = document.getElementById("waFileName");
+            nameEl.textContent = "已选择: " + file.name + " (" + (file.size / 1024).toFixed(1) + " KB)";
+            nameEl.style.display = "block";
+
+            // 预读取文件内容检查是否有效
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result || "";
+                if (text.trim().length < 10) {
+                    nameEl.innerHTML = "已选择: " + file.name + ' <span style="color:var(--hot);">（文件内容可能为空或编码不正确）</span>';
+                } else {
+                    // 检查是否包含冒号（WhatsApp 消息的基本特征）
+                    const lines = text.split("\n").filter(function(l) { return l.trim(); });
+                    const hasColon = lines.some(function(l) { return l.indexOf(":") >= 0 || l.indexOf("：") >= 0; });
+                    if (!hasColon && lines.length > 3) {
+                        nameEl.innerHTML = "已选择: " + file.name + ' <span style="color:var(--warm);">（文件格式可能不标准，但系统会尝试自动识别）</span>';
+                    }
+                }
+            };
+            reader.onerror = function() {
+                nameEl.innerHTML = "已选择: " + file.name + ' <span style="color:var(--hot);">（文件读取失败，请重试）</span>';
+            };
+            // 尝试用 UTF-8 读取，后端会处理其他编码
+            reader.readAsText(file, "UTF-8");
+        }
+    }
+
+    async function doWaImport() {
+        // 如果在客户详情页，使用客户专用的导入逻辑
+        if (currentDetailView === "customer" && selectedCustomerId) {
+            await doWaImportForCustomer();
+            return;
+        }
+
+        const btn = document.getElementById("waImportBtn");
+        const text = document.getElementById("waTextInput").value.trim();
+
+        if (!text && !selectedWaFile) {
+            toast("请粘贴聊天记录或选择文件", "error");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<svg class="icon-sm spin" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> 导入中...';
+
+        try {
+            if (selectedWaFile) {
+                const formData = new FormData();
+                formData.append("file", selectedWaFile);
+
+                const r = await fetch(API + "/whatsapp/import/file", {
+                    method: "POST",
+                    headers: authHeaders(),
+                    body: formData,
+                });
+                const d = await r.json();
+                if (!r.ok) {
+                    throw new Error(d.detail || d.message || "导入失败");
+                }
+                toast("成功导入 " + d.imported + " 条消息（客户: " + (d.customer_name || "自动创建") + "）", "success");
+            } else {
+                const d = await apiPost("/whatsapp/import", { text: text });
+                toast("成功导入 " + d.imported + " 条消息（客户: " + (d.customer_name || "自动创建") + "）", "success");
+            }
+
+            closeWaImport();
+            await loadWaConversations();
+            await loadCustomers();
+            if (currentView === "whatsapp") {
+                renderView();
+            }
+        } catch(e) {
+            let errMsg = e.message || "导入失败";
+            if (errMsg.indexOf("无法解析") >= 0) {
+                errMsg = "无法识别聊天记录格式。请确保是 WhatsApp 导出的文本，包含日期时间和发送者名称";
+            }
+            toast("导入失败: " + errMsg, "error");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 导入';
+        }
+    }
+
+    // ── 清空数据 ──
+    async function clearData() {
+        if (!confirm("确定清空当前账号的所有客户和邮件数据吗？此操作不可恢复。")) return;
+        try {
+            await apiPost("/data/clear", {});
+            toast("数据已清空", "success");
+            goBack();
+            await loadAllData();
+            renderView();
+        } catch(e) {
+            toast("清空失败: " + e.message, "error");
+        }
+    }
+
+    // ── 工具函数 ──
+    function cleanText(text) {
+        if (!text) return "";
+        return text.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+    }
+
+    function priorityLabel(p) {
+        const map = { hot: "高优先级", warm: "中优先级", cold: "低优先级", pending: "分析中" };
+        return map[p] || "低优先级";
+    }
+
+    function priorityClass(p) {
+        if (p === "pending") return "analyzing";
+        return p || "cold";
+    }
+
+    function formatTime(t) {
+        if (!t) return "";
+        try {
+            const d = new Date(t);
+            const now = new Date();
+            const diff = (now - d) / 1000;
+            if (diff < 60) return "刚刚";
+            if (diff < 3600) return Math.floor(diff / 60) + "分钟前";
+            if (diff < 86400) return Math.floor(diff / 3600) + "小时前";
+            if (diff < 604800) return Math.floor(diff / 86400) + "天前";
+            return d.getFullYear() + "-" +
+                String(d.getMonth() + 1).padStart(2, "0") + "-" +
+                String(d.getDate()).padStart(2, "0");
+        } catch(e) { return ""; }
+    }
+
+    // ── AI 状态 ──
+    async function loadAiStatus() {
+        const el = document.getElementById("aiStatus");
+        if (!el) return;
+        const txt = document.getElementById("aiStatusText");
+        el.className = "ai-status loading";
+        txt.textContent = "AI 检测中...";
+        try {
+            const r = await fetch(API + "/ai/status", { headers: authHeaders() });
+            const d = await r.json();
+            const modelEl = document.getElementById("aiModel");
+            const msgEl = document.getElementById("aiMessage");
+            if (modelEl) modelEl.textContent = d.model || "Mock";
+            if (msgEl) msgEl.textContent = d.message;
+            if (d.connected) {
+                el.className = "ai-status ok";
+                txt.textContent = "AI 已接入";
+            } else if (d.mock_mode) {
+                el.className = "ai-status mock";
+                txt.textContent = "AI Mock 模式";
+            } else {
+                el.className = "ai-status error";
+                txt.textContent = "AI 连接异常";
+            }
+        } catch(e) {
+            el.className = "ai-status error";
+            txt.textContent = "AI 状态未知";
+            const msgEl = document.getElementById("aiMessage");
+            if (msgEl) msgEl.textContent = "无法连接服务器";
+        }
+    }
+
+    function toggleAiTooltip(e) {
+        e.stopPropagation();
+        const tip = document.getElementById("aiTooltip");
+        const sdg = document.getElementById("searchDropdown");
+        if (sdg) sdg.style.display = "none";
+        if (tip) tip.classList.toggle("show");
+    }
+
+    // ── 账号切换 ──
+    function toggleAccountDropdown(e) {
+        e.stopPropagation();
+        const dd = document.getElementById("accountDropdown");
+        const arrow = document.getElementById("accArrowBtn");
+        if (dd.style.display === "block") {
+            dd.style.display = "none";
+            if (arrow) arrow.textContent = "⌄";
+            return;
+        }
+        loadAccountList();
+        dd.style.display = "block";
+        if (arrow) arrow.textContent = "⌃";
+    }
+
+    async function loadAccountList() {
+        const list = document.getElementById("ddAccountList");
+        list.innerHTML = '<div class="dd-loading">加载中...</div>';
+        // 填充当前账号信息
+        const curEmail = localStorage.getItem("crm_email") || "-";
+        document.getElementById("ddCurEmail").textContent = curEmail;
+        document.getElementById("ddCurAvatar").textContent = (curEmail || "U")[0].toUpperCase();
+        try {
+            let myIds = [];
+            try { myIds = JSON.parse(localStorage.getItem("my_account_ids") || "[]"); } catch(e) {}
+            if (!myIds.length) {
+                list.innerHTML = '<div class="dd-empty">暂无其他账号</div>';
+                return [];
+            }
+            const r = await fetch(API + "/accounts/list", {
+                method: "POST",
+                headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+                body: JSON.stringify({ my_account_ids: myIds }),
+            });
+            const accounts = await r.json();
+            list.innerHTML = "";
+            // 过滤掉当前账号，只显示可切换的其他账号
+            const currentEmail = localStorage.getItem("crm_email") || "";
+            const otherAccounts = accounts.filter(function(a) { return a.email !== currentEmail; });
+            if (otherAccounts.length === 0) {
+                list.innerHTML = '<div class="dd-empty">暂无其他账号</div>';
+            } else {
+                otherAccounts.forEach(function(a) {
+                    const item = document.createElement("div");
+                    item.className = "account-item";
+                    item.innerHTML =
+                        '<div class="acc-avatar">' + (a.email || "U")[0].toUpperCase() + '</div>' +
+                        '<div class="acc-info">' +
+                        '<div class="acc-email">' + esc(a.email) + '</div>' +
+                        '<div class="acc-meta">' + esc(a.provider_name || "") + '</div>' +
+                        '</div>' +
+                        '<div class="acc-actions">' +
+                        '<button class="del-btn" onclick="event.stopPropagation();deleteAccount(' + a.id + ')">删除</button>' +
+                        '</div>';
+                    item.onclick = function() { switchAccount(a.id); };
+                    list.appendChild(item);
+                });
+            }
+            return accounts;
+        } catch(e) {
+            list.innerHTML = '<div class="dd-empty">暂无其他账号</div>';
+            return [];
+        }
+    }
+
+    function addNewAccount() {
+        document.getElementById("accountDropdown").style.display = "none";
+        var arrow = document.getElementById("accArrowBtn");
+        if (arrow) arrow.textContent = "⌄";
+        location.href = "/login";
+    }
+
+    document.addEventListener("click", function() {
+        const dd = document.getElementById("accountDropdown");
+        if (dd) dd.style.display = "none";
+        const arrow = document.getElementById("accArrowBtn");
+        if (arrow) arrow.textContent = "⌄";
+        const tip = document.getElementById("aiTooltip");
+        if (tip) tip.classList.remove("show");
+        const np = document.getElementById("notifPanel");
+        if (np) np.style.display = "none";
+        const sd = document.getElementById("searchDropdown");
+        if (sd) sd.style.display = "none";
+    });
+
+    // ── 消息通知（未回复邮件） ──
+    function notifEmails() {
+        return (emails || []).filter(function(e) { return !e.replied && !e.no_reply_needed; });
+    }
+    function notifIsToday(t) {
+        if (!t) return false;
+        const d = new Date(t), now = new Date();
+        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+    }
+    function renderNotifPanel() {
+        const list = notifEmails();
+        const badge = document.getElementById("notifBadge");
+        if (badge) {
+            badge.textContent = list.length > 99 ? "99+" : String(list.length);
+            badge.style.display = list.length > 0 ? "flex" : "none";
+        }
+        const todayList = list.filter(function(e) { return notifIsToday(e.received_at); });
+        const todayText = document.getElementById("notifTodayText");
+        if (todayText) todayText.textContent = "今天待回复 " + todayList.length + " 封";
+        const el = document.getElementById("notifList");
+        if (!el) return;
+        if (list.length === 0) {
+            el.innerHTML = '<div class="notif-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>全部邮件已回复</div>';
+            return;
+        }
+        let html = "";
+        if (todayList.length > 0) {
+            html += '<div class="notif-section">今天待回复</div>';
+            todayList.forEach(function(e) { html += notifItemHTML(e, true); });
+        }
+        const others = list.filter(function(e) { return !notifIsToday(e.received_at); });
+        if (others.length > 0) {
+            html += '<div class="notif-section">其他未回复</div>';
+            others.forEach(function(e) { html += notifItemHTML(e, false); });
+        }
+        el.innerHTML = html;
+    }
+    function notifItemHTML(e, isToday) {
+        const pClass = priorityClass(e.priority || "cold");
+        const pLabel = priorityLabel(e.priority || "cold");
+        const timeLabel = (isToday ? "今天 · " : "") + formatTime(e.received_at);
+        return '<button class="notif-item' + (isToday ? " today" : "") + '" onclick="openNotifEmail(' + e.id + ')">' +
+            '<div class="ni-row"><span class="ni-subject">' + esc(e.subject || "(无主题)") + '</span>' +
+            '<span class="badge-inline ' + pClass + '">' + pLabel + '</span></div>' +
+            '<div class="ni-meta">' + esc(e.customer_name || e.sender || "") + ' · ' + timeLabel + '</div>' +
+            (e.summary ? '<div class="ni-summary">' + esc(e.summary.substring(0, 70)) + '</div>' : '') +
+            '</button>';
+    }
+    function toggleNotifPanel(e) {
+        e.stopPropagation();
+        const panel = document.getElementById("notifPanel");
+        if (!panel) return;
+        if (panel.style.display === "block") { panel.style.display = "none"; return; }
+        renderNotifPanel();
+        panel.style.display = "block";
+    }
+    function openNotifEmail(id) {
+        const panel = document.getElementById("notifPanel");
+        if (panel) panel.style.display = "none";
+        switchView("emails");
+        viewEmail(id);
+        setTimeout(function() {
+            const items = document.querySelectorAll(".email-item");
+            items.forEach(function(it) { it.classList.remove("active"); });
+            items.forEach(function(it) {
+                const oc = it.getAttribute("onclick") || "";
+                if (oc.indexOf("viewEmail(" + id + ")") >= 0) {
+                    it.classList.add("active");
+                    it.scrollIntoView({ block: "center", behavior: "smooth" });
+                }
+            });
+        }, 200);
+    }
+
+    async function switchAccount(accountId) {
+        try {
+            let myIds = [];
+            try { myIds = JSON.parse(localStorage.getItem("my_account_ids") || "[]"); } catch(e) {}
+            const r = await fetch(API + "/accounts/switch", {
+                method: "POST",
+                headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+                body: JSON.stringify({ account_id: accountId, my_account_ids: myIds }),
+            });
+            const d = await r.json();
+            if (d.token) {
+                localStorage.setItem("crm_token", d.token);
+                localStorage.setItem("crm_email", d.email);
+                let ids = [];
+                try { ids = JSON.parse(localStorage.getItem("my_account_ids") || "[]"); } catch(e) {}
+                if (d.account_id && ids.indexOf(d.account_id) === -1) {
+                    ids.push(d.account_id);
+                    localStorage.setItem("my_account_ids", JSON.stringify(ids));
+                }
+                toast("切换成功，正在刷新...", "success");
+                setTimeout(function() { location.reload(); }, 800);
+            }
+        } catch(e) {
+            toast("切换失败", "error");
+        }
+    }
+
+    async function deleteAccount(accountId) {
+        if (!confirm("确定删除此账号及其所有数据吗？")) return;
+        try {
+            let myIds = [];
+            try { myIds = JSON.parse(localStorage.getItem("my_account_ids") || "[]"); } catch(e) {}
+            const r = await fetch(API + "/accounts/delete", {
+                method: "POST",
+                headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+                body: JSON.stringify({ account_id: accountId, my_account_ids: myIds }),
+            });
+            if (r.ok) {
+                let ids = myIds.filter(function(id) { return id !== accountId; });
+                localStorage.setItem("my_account_ids", JSON.stringify(ids));
+                toast("账号已删除", "success");
+                document.getElementById("accountDropdown").style.display = "none";
+                loadAccountList();
+            } else {
+                toast("删除账号失败", "error");
+            }
+        } catch(e) { toast("删除账号失败: " + e.message, "error"); }
+    }
+
+    async function doLogout() {
+        try { await apiPost("/auth/logout"); } catch(e) {}
+        localStorage.removeItem("crm_token");
+        localStorage.removeItem("crm_email");
+        location.href = "/login";
+    }
+
+    // 启动
+
+    // ── 编辑客户（等级 / 优先级 / 画像摘要） ──
+    let editingCustomerId = null;
+    function openEditDialog() {
+        const c = customerDetailData;
+        if (!c) { toast("请先打开客户详情", "error"); return; }
+        editingCustomerId = c.id;
+        document.getElementById("editCustomerName").textContent = c.name || c.email || "";
+        document.getElementById("editPriority").value = c.priority || "cold";
+        document.getElementById("editGrade").value = c.grade || "";
+        let p = {};
+        try { p = c.profile_summary ? JSON.parse(c.profile_summary) : {}; } catch(e) { p = {}; }
+        document.getElementById("editCustomerType").value = p.customer_type || "";
+        document.getElementById("editCompanySize").value = p.company_size || "";
+        document.getElementById("editHistorySummary").value = p.history_summary || "";
+        document.getElementById("editCommStyle").value = p.communication_style || "";
+        document.getElementById("editRisks").value = p.risks_and_opportunities || "";
+        document.getElementById("editCustomerOverlay").classList.add("show");
+    }
+    function closeEditDialog() {
+        document.getElementById("editCustomerOverlay").classList.remove("show");
+    }
+    async function saveCustomerEdit() {
+        if (!editingCustomerId) return;
+        const payload = {
+            priority: document.getElementById("editPriority").value,
+            grade: document.getElementById("editGrade").value,
+            profile: {
+                customer_type: document.getElementById("editCustomerType").value,
+                company_size: document.getElementById("editCompanySize").value,
+                history_summary: document.getElementById("editHistorySummary").value,
+                communication_style: document.getElementById("editCommStyle").value,
+                risks_and_opportunities: document.getElementById("editRisks").value,
+            }
+        };
+        try {
+            const r = await fetch(API + "/customers/" + editingCustomerId + "/update", {
+                method: "POST",
+                headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+                body: JSON.stringify(payload),
+            });
+            if (!r.ok) throw new Error("保存失败");
+            const d = await r.json();
+            toast("已保存：客户等级 " + (d.grade || "未分级") + " · " + priorityLabel(d.priority), "success");
+            closeEditDialog();
+            const c = await (await fetch(API + "/customers/" + editingCustomerId, { headers: authHeaders() })).json();
+            customerDetailData = c;
+            await loadCustomers();
+            renderView();
+            // 同步刷新列表中被编辑客户的等级 / 优先级显示
+            document.querySelectorAll(".customer-item").forEach(function(it) {
+                const oc = it.getAttribute("onclick") || "";
+                if (oc.indexOf("viewCustomer(" + editingCustomerId + ")") >= 0) {
+                    const grade = c.grade || "";
+                    const nameCell = it.querySelector(".ci-name");
+                    if (nameCell) {
+                        nameCell.innerHTML = '<span class="ci-name-text">' + esc(c.name || c.email) + '</span>' + (grade ? '<span class="grade-badge grade-' + String(grade).toLowerCase() + '">' + esc(grade) + ' 级</span>' : '');
+                    }
+                    const badge = it.querySelector(".ci-badge");
+                    if (badge) { badge.className = "ci-badge " + priorityClass(c.priority); badge.textContent = priorityLabel(c.priority); }
+                }
+            });
+        } catch(e) {
+            toast("保存失败: " + e.message, "error");
+        }
+    }
+
+    // ── AI 对话 ──
+    let chatHistory = [];
+    let chatCustomerId = null;
+    let chatConvId = null;
+    function openChatDialog() {
+        const c = customerDetailData;
+        if (!c) { toast("请先打开客户详情", "error"); return; }
+        chatCustomerId = c.id;
+        chatHistory = [];
+        chatConvId = null;
+        document.getElementById("chatCustomerName").textContent = c.name || c.email || "";
+        document.getElementById("chatBody").innerHTML = '<div class="chat-msg ai"><div class="chat-bubble">你好，我是 AI 销售助理。可以帮你分析客户（' + esc(c.name || c.email) + '）的画像、风险、跟进建议，也可以帮你起草回复、修改优先级/等级、生成跟进计划等。请问有什么可以帮你？</div></div>';
+        document.getElementById("chatInput").value = "";
+        document.getElementById("aiChatOverlay").classList.add("show");
+        setTimeout(function(){ document.getElementById("chatInput").focus(); }, 120);
+    }
+    function closeChatDialog() {
+        document.getElementById("aiChatOverlay").classList.remove("show");
+    }
+    function appendChatMsg(role, text) {
+        const body = document.getElementById("chatBody");
+        const div = document.createElement("div");
+        div.className = "chat-msg " + (role === "user" ? "me" : "ai");
+        const bubble = document.createElement("div");
+        bubble.className = "chat-bubble";
+        if (role === "ai") {
+            bubble.innerHTML = formatAiMessage(text);
+            var copyBtn = document.createElement("button");
+            copyBtn.className = "chat-copy-btn";
+            copyBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+            copyBtn.title = "复制";
+            copyBtn.onclick = function() { navigator.clipboard.writeText(text); toast("已复制", "success"); };
+            bubble.appendChild(copyBtn);
+        } else {
+            bubble.textContent = text;
+        }
+        div.appendChild(bubble);
+        body.appendChild(div);
+        body.scrollTop = body.scrollHeight;
+    }
+    async function sendChatMessage() {
+        const input = document.getElementById("chatInput");
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = "";
+        appendChatMsg("user", text);
+        const body = document.getElementById("chatBody");
+        const tip = document.createElement("div");
+        tip.className = "chat-msg ai";
+        tip.innerHTML = '<div class="chat-bubble chat-typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>';
+        body.appendChild(tip);
+        body.scrollTop = body.scrollHeight;
+        try {
+            const r = await fetch(API + "/ai/agent", {
+                method: "POST",
+                headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+                body: JSON.stringify({
+                    message: text,
+                    customer_id: chatCustomerId,
+                    history: chatHistory.slice(-10),
+                    conversation_id: chatConvId,
+                    conv_type: "general"
+                }),
+            });
+            const d = await r.json();
+            tip.remove();
+            // 显示动作结果
+            if (d.actions && d.actions.length) {
+                var wrap = document.createElement("div");
+                wrap.className = "agent-results";
+                d.actions.forEach(function(a) {
+                    var s = document.createElement("span");
+                    s.className = "agent-result-chip " + (a.ok ? "" : "agent-result-fail");
+                    var icon = a.ok
+                        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><polyline points="20 6 9 17 4 12"/></svg>'
+                        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+                    s.innerHTML = icon + esc(a.msg || (a.ok ? "已执行" : "执行失败"));
+                    wrap.appendChild(s);
+                });
+                body.appendChild(wrap);
+            }
+            const reply = d.reply || "（无回复）";
+            appendChatMsg("ai", reply);
+            chatHistory.push({ role: "user", content: text });
+            chatHistory.push({ role: "assistant", content: reply });
+            if (d.conversation_id) chatConvId = d.conversation_id;
+            body.scrollTop = body.scrollHeight;
+        } catch(e) {
+            tip.remove();
+            appendChatMsg("ai", "请求失败：" + e.message);
+        }
+    }
+
+    // 未回复邮件悬浮框
+    function toggleUnrepliedPanel(e) {
+        if (e) e.stopPropagation();
+        var p = document.getElementById("unrepliedPanel");
+        if (p) {
+            p.style.display = p.style.display === "none" ? "block" : "none";
+        }
+    }
+    function closeUnrepliedPanel() {
+        var p = document.getElementById("unrepliedPanel");
+        if (p) p.style.display = "none";
+    }
+    // 点击外部关闭悬浮框
+    document.addEventListener("click", function(e) {
+        var panel = document.getElementById("unrepliedPanel");
+        var badge = document.getElementById("unrepliedBadge");
+        if (panel && badge && !panel.contains(e.target) && !badge.contains(e.target)) {
+            panel.style.display = "none";
+        }
+    });
+
+
+    // ═══════════════════════════════════════════════════════════
+
+
+    // ── 工作台（设计稿版，真实数据） ──
+    function renderDashboard() {
+        currentDetailView = null;
+        var _rs=document.querySelector('.right-sidebar'); if(_rs) _rs.style.display='none';
+        var _mp=document.querySelector('.middle-panel'); if(_mp) _mp.style.flex='1';
+        document.getElementById("backBtn").style.display = "none";
+        const s = stats || {};
+        const hour = new Date().getHours();
+        const greet = hour < 6 ? "凌晨好" : hour < 12 ? "上午好" : hour < 14 ? "中午好" : hour < 18 ? "下午好" : "晚上好";
+        const today = new Date();
+        const dateStr = today.getFullYear() + "年" + (today.getMonth() + 1) + "月" + today.getDate() + "日";
+        const unread = (emails||[]).filter(e=>!e.replied&&!e.no_reply_needed);
+        const unreadCount = unread.length;
+        let html = '<div class="dash-wrap"><div class="dash">';
+        html += '<div class="dash-greeting"><h1>' + greet + '，管理员 👋</h1><p>今天是 ' + dateStr + '，祝你工作顺利</p></div>';
+        // 右上角未回复提醒徽章 + 悬浮框
+        if (unreadCount > 0) {
+            html += '<div class="dash-unreplied-badge" id="unrepliedBadge" onclick="toggleUnrepliedPanel(event)">';
+            html += '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+            html += '<span class="dash-unreplied-num">' + unreadCount + '</span>';
+            html += '<span class="dash-unreplied-label">待回复</span>';
+            html += '</div>';
+            // 悬浮框数据
+            html += '<div class="dash-unreplied-panel" id="unrepliedPanel" style="display:none;">';
+            html += '<div class="dup-header"><span>未回复邮件 (' + unreadCount + ')</span><button class="dup-close" onclick="closeUnrepliedPanel()">×</button></div>';
+            html += '<div class="dup-list">';
+            unread.forEach(function(e) {
+                var custName = e.sender_name || e.sender || '未知';
+                var subj = e.subject || '(无主题)';
+                var pcolor = e.priority === 'hot' ? '#ef5555' : e.priority === 'warm' ? '#df9b19' : '#7890ad';
+                var ptag = e.priority === 'hot' ? '高' : e.priority === 'warm' ? '中' : '低';
+                html += '<div class="dup-item" onclick="closeUnrepliedPanel();viewEmail(' + e.id + ')">';
+                html += '<div class="dup-dot" style="background:' + pcolor + '">' + ptag + '</div>';
+                html += '<div class="dup-info"><div class="dup-subject">' + esc(subj) + '</div><div class="dup-from">' + esc(custName) + '</div></div>';
+                html += '<svg class="dup-arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+                html += '</div>';
+            });
+            html += '</div>';
+            html += '</div>';
+        }
+        html += '<div class="kpis">';
+        html += kpiCard("♙","客户总数", s.total_customers||0, "今日新增 <span class=\'up\'>+"+(s.today_new_customers||0)+"</span>", 0);
+        html += kpiCard("✉","邮件总数", s.total_emails||0, "已分析 <span class=\'up\'>"+(s.analyzed_emails||0)+"</span> 封", 1);
+        html += kpiCard("♧","今日新增客户", s.today_new_customers||0, "较昨日持续增长", 2);
+        html += kpiCard("✦","AI 分析", (s.analyzed_emails||0), "已生成回复草稿", 3);
+        html += '</div>';
+        html += '<div class="dash-grid">';
+        html += '<section class="dash-card"><div class="dash-panel-title">最新邮件 <span class="dash-link" onclick="switchView(\'emails\')">查看全部</span></div>';
+        const em = (emails||[]).slice(0,5);
+        if (!em.length) html += '<div class="content-empty">暂无邮件</div>';
+        em.forEach(function(e,i){
+            const av = (e.sender || "?").charAt(0).toUpperCase();
+            const pc = e.priority === "hot" ? "高优先级" : e.priority === "warm" ? "中优先级" : "低优先级";
+            const pstyle = e.priority === "hot" ? "background:#fff0f0;color:#ef5555" : e.priority === "warm" ? "background:#fff7e5;color:#df9b19" : "background:#eafaf4;color:#19a875";
+            const avbg = e.priority === "hot" ? "#ef5555" : e.priority === "warm" ? "#df9b19" : "#7890ad";
+            html += '<div class="dash-email" style="cursor:pointer" onclick="viewEmail(' + e.id + ')"><div class="dash-mail-av" style="background:' + avbg + '"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></div><div style="min-width:0"><div class="dash-subject">' + esc(e.subject||"(无主题)") + '</div><div class="dash-from">' + esc(e.sender||"") + '</div><div class="dash-prio" style="' + pstyle + '">' + pc + '</div></div><div style="font-size:10px;color:#7890ad;white-space:nowrap">' + formatTime(e.received_at) + '</div></div>';
+        });
+        html += '</section>';
+        html += '<section class="dash-card"><div class="dash-panel-title">客户跟进状态 <span class="dash-link" onclick="switchView(\'customers\')">查看全部</span></div>';
+        const cu = (customers||[]).slice(0,4);
+        if (!cu.length) html += '<div class="content-empty">暂无客户</div>';
+        cu.forEach(function(c){
+            const p = c.priority;
+            const tag = (p==="hot"||p==="pending"||p==="warm") ? "跟进中" : "已沉淀";
+            const tagCls = p==="cold" ? "done" : "";
+            html += '<div class="dash-customer" onclick="viewCustomer(' + c.id + ')"><div class="dash-cust-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M6 21v-1a6 6 0 0 1 12 0v1"/></svg></div><div class="customer-info"><div class="dash-cust-name">' + esc(c.name||c.email) + '</div><div class="dash-cust-sub">' + esc(c.email||"") + ' · ' + formatTime(c.last_contact_at) + '</div></div><div><span class="dash-tag ' + tagCls + '">' + tag + '</span>' + (c.grade ? '<div style="font-size:9px;color:#8ca0b6;margin-top:6px">' + esc(c.grade) + ' 级客户</div>' : '') + '</div></div>';
+        });
+        html += '</section>';
+        html += '<div class="dash-right">';
+        html += '<section class="dash-card" style="margin-bottom:16px"><div class="dash-panel-title"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:#2f6df6;margin-right:4px"><path d="M12 2L13.09 8.26L20 9L13.09 9.74L12 16L10.91 9.74L4 9L10.91 8.26L12 2Z"/></svg>AI 助手 <span style="font-size:10px;background:#edf3ff;color:#4776de;padding:4px 7px;border-radius:8px">BETA</span></div>';
+        html += '<div style="font-size:11px;color:#8194aa;margin:-6px 0 14px">我可以帮你处理邮件、分析客户、生成跟进计划等</div>';
+        var quickTasks = [
+            {icon:'<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M6 21v-1a6 6 0 0 1 12 0v1"/></svg>',label:'分析客户跟进',msg:'帮我分析最近的客户跟进情况'},
+            {icon:'<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>',label:'总结未回复邮件',msg:'总结未回复的重要邮件'},
+            {icon:'<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>',label:'生成跟进计划',msg:'生成客户跟进计划'},
+            {icon:'<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',label:'写英文回复',msg:'帮我写一封英文回复'}
+        ];
+        quickTasks.forEach(function(t){ html += '<div class="dash-ai-task" onclick="openAiAssistant(\'' + t.msg.replace(/'/g,"\\'") + '\')">' + t.icon + '<span>' + t.label + '</span></div>'; });
+        html += '<div class="dash-ai-input" onclick="openAiAssistant()">问我任何关于客户或邮件的问题...<span class="send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></span></div>';
+        html += '</section>';
+        html += '<section class="dash-card"><div class="dash-panel-title">数据统计</div><div class="dash-stat-grid">';
+        const statsItems = [["客户总数", s.total_customers||0, (s.hot_customers||0)+" 高优先"],["邮件总数", s.total_emails||0, (s.analyzed_emails||0)+" 已分析"],["高优先级", s.hot_customers||0, "优先处理"],["待跟进", (s.pending_customers||0)+(s.warm_customers||0), "需关注"]];
+        statsItems.forEach(function(it,i){ html += '<div class="dash-stat"><div class="dash-stat-label">' + it[0] + '</div><div class="dash-stat-value">' + it[1] + '</div><div class="dash-stat-change">' + it[2] + '</div></div>'; });
+        html += '</div></section>';
+        html += '</div>';
+        html += '</div></div></div>';
+        document.getElementById("middleContent").innerHTML = html;
+    }
+    function kpiCard(ic, label, value, foot, idx) {
+        const cols = ["#eef5ff,#2f6df6","#f4edff,#8a4df5","#eff8ff,#3789f5","#fff1ec,#ff7347"][idx] || "#eef5ff,#2f6df6";
+        const bg = cols.split(",")[0], fg = cols.split(",")[1];
+        return '<div class="card kpi dash-card"><div class="kpi-top"><div class="kpi-icon" style="background:' + bg + ';color:' + fg + '">' + ic + '</div><div><div class="kpi-label">' + label + '</div><div class="kpi-value">' + value + '</div></div></div><div class="kpi-foot">' + foot + '</div></div>';
+    }
+    function openSettings() {
+        _pushHistory();
+        currentView = "settings";
+        currentDetailView = null;
+        document.getElementById("backBtn").style.display = "none";
+        document.querySelector(".right-sidebar").style.display = "none";
+        document.querySelector(".middle-panel").style.flex = "1";
+        renderSettings();
+    }
+    function renderSettings() {
+        const s = stats || {};
+        let html = '<div class="dash-wrap"><div class="dash">';
+        html += '<div class="dash-greeting"><h1>设置中心</h1><p>系统常用设置</p></div>';
+        html += '<section class="dash-card"><div class="dash-panel-title">AI 助手</div>';
+        html += '<div class="dash-ai-task"><b>ⓘ</b>当前 AI 模型：<b id="setModel">deepseek-v4-flash</b></div>';
+        html += '<div class="dash-ai-task"><b>✉</b>回复草稿语言：<b>英文（默认）</b>，可在邮件详情切换中/英文</div>';
+        html += '<div class="dash-ai-task"><b>▣</b>跟进规则：A级7天 / B级14天 / C级30天（可在跟进计划中编辑）</div>';
+        html += '</section>';
+        html += '<section class="dash-card"><div class="dash-panel-title">数据概览</div><div class="dash-stat-grid">';
+        [["客户总数", s.total_customers||0],["邮件总数", s.total_emails||0],["高优先级", s.hot_customers||0],["今日新增", s.today_new_customers||0]].forEach(function(it){ html += '<div class="dash-stat"><div class="dash-stat-label">' + it[0] + '</div><div class="dash-stat-value">' + it[1] + '</div></div>'; });
+        html += '</div></section>';
+        html += '</div></div>';
+        document.getElementById("middleContent").innerHTML = html;
+    }
+    // AI 助手（聊天 + Agent + 喂养 + 跟进计划 + 拉取筛选）
+    // ═══════════════════════════════════════════════════════════
+    let agentHistory = [];
+    let currentConvId = null;       // 当前会话ID
+    let convListData = [];          // 会话列表数据
+    let currentConvType = "general"; // 当前会话类型
+    let followupCustomerId = null;
+    let fetchReviewEmails = [];
+    let fetchReviewPending = null;
+
+    // ── AI 助手面板 ──
+    function openAiAssistant(prefillMsg) {
+        _pushHistory();
+        currentDetailView = "ai";
+        document.getElementById("backBtn").style.display = "inline-flex";
+        // 隐藏右侧栏，中间栏占满
+        var rs = document.querySelector(".right-sidebar");
+        var mp = document.querySelector(".middle-panel");
+        if (rs) rs.style.display = "none";
+        if (mp) mp.style.flex = "1";
+        // 清空右侧栏内容，避免残留
+        var rightList = document.getElementById("rightList");
+        if (rightList) rightList.innerHTML = "";
+        document.getElementById("rightTitle").textContent = "";
+        document.getElementById("rightCount").textContent = "";
+        renderAiAssistant();
+        // 固定 middle-content 不滚动，仅聊天区域滚动
+        var mc = document.getElementById("middleContent");
+        if (mc) { mc.style.overflow = "hidden"; mc.style.padding = "0"; }
+        if (prefillMsg) {
+            setTimeout(function() { sendAgentMessage(prefillMsg); }, 100);
+        }
+    }
+    function renderAiAssistant() {
+        let html = '<div class="ai-layout">';
+        // 左侧会话侧边栏
+        html += '<div class="conv-sidebar">';
+        html += '<button class="new-conv-btn" onclick="newConversation(\'general\')">';
+        html += '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+        html += '<span>新对话</span>';
+        html += '</button>';
+        html += '<div class="conv-list" id="convList"></div>';
+        html += '</div>';
+        // 右侧主内容区
+        html += '<div class="ai-main-content">';
+        // 顶部精简工具栏
+        html += '<div class="ai-toolbar">';
+        html += '<div class="ai-toolbar-left"><span class="ai-toolbar-badge">AI 助手</span></div>';
+        html += '<div class="ai-toolbar-right">';
+        html += '<button class="ai-tool-btn" onclick="openFeedDialog()"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="8" rx="1"/><rect x="12" y="6" width="3" height="12" rx="1"/><rect x="17" y="13" width="3" height="5" rx="1"/></svg><span>喂数据</span></button>';
+        html += '<button class="ai-tool-btn" onclick="openFollowupDialog()"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/></svg><span>跟进计划</span></button>';
+        html += '<button class="ai-tool-btn" onclick="openKnowledgeDialog()"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg><span>知识库</span></button>';
+        html += '<button class="ai-tool-btn" onclick="openMemoryDialog()"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg><span>AI记忆</span></button>';
+        html += '</div>';
+        html += '</div>';
+        // 聊天区域 — flex 填满
+        html += '<div class="ai-chat-wrapper">';
+        html += '<div class="ai-chat-body" id="aiPanelBody"></div>';
+        // 快捷指令栏（可折叠，仅在欢迎界面显示）
+        html += '<div class="ai-quick-bar" id="aiQuickBar" style="display:none;">';
+        html += '<button class="ai-q-btn" onclick="sendAgentMessage(\'帮我分析最近的客户跟进情况\')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M6 21v-1a6 6 0 0 1 12 0v1"/></svg>分析客户跟进</button>';
+        html += '<button class="ai-q-btn" onclick="sendAgentMessage(\'总结未回复的重要邮件\')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>总结未回复邮件</button>';
+        html += '<button class="ai-q-btn" onclick="sendAgentMessage(\'生成客户跟进计划\')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>生成跟进计划</button>';
+        html += '<button class="ai-q-btn" onclick="sendAgentMessage(\'列出高优先级客户并分析\')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 15 8.5 22 9.3l-5 4.9 1.2 7L12 17.8 5.8 21.2 7 14.2 2 9.3l7-0.8z"/></svg>高优先级客户</button>';
+        html += '<button class="ai-q-btn" onclick="sendAgentMessage(\'帮我写一封英文回复给最近联系的客户\')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>写英文回复</button>';
+        html += '<button class="ai-q-btn" onclick="sendAgentMessage(\'今日工作摘要\')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>今日工作摘要</button>';
+        html += '</div>';
+        // 输入栏 — 固定底部
+        html += '<div class="ai-chat-input-bar">';
+        html += '<input id="aiPanelInput" placeholder="给 AI 助手发送消息…" onkeydown="if(event.key===\'Enter\')sendAgentMessage()">';
+        html += '<button class="ai-send-btn" onclick="sendAgentMessage()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>';
+        html += '</div>';
+        html += '</div>'; // close ai-chat-wrapper
+        html += '</div>'; // close ai-main-content
+        document.getElementById("middleContent").innerHTML = html;
+        // 加载会话列表，并自动选中最近的会话
+        loadConvListAndAutoSelect("general");
+        // Fetch proactive reminders
+        fetchAiReminders();
+    }
+
+    async function loadConvListAndAutoSelect(convType) {
+        await loadConvList(convType);
+        // 如果有历史会话，自动选中第一个（最近的）
+        if (convListData && convListData.length > 0) {
+            selectConversation(convListData[0].id);
+        } else {
+            // 没有历史会话，显示欢迎界面
+            currentConvId = null;
+            agentHistory = [];
+            showWelcomeScreen();
+        }
+    }
+    function showWelcomeScreen() {
+        const body = document.getElementById("aiPanelBody");
+        if (body) {
+            body.innerHTML = '<div class="ai-welcome-screen"><div class="ai-welcome-icon"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg></div><div class="ai-welcome-title">有什么可以帮你的？</div><div class="ai-welcome-text">选择下方快捷指令，或直接输入你的问题</div></div>';
+        }
+        var qb = document.getElementById("aiQuickBar");
+        if (qb) qb.style.display = "flex";
+    }
+    function hideQuickBar() {
+        var qb = document.getElementById("aiQuickBar");
+        if (qb) qb.style.display = "none";
+    }
+    async function fetchAiReminders() {
+        const area = document.getElementById("aiRemindersArea");
+        if (!area) return;
+        try {
+            const r = await fetch(API + "/ai/reminders", { headers: authHeaders() });
+            const d = await r.json();
+            if (d.reminders && d.reminders.trim()) {
+                let cls = "ai-reminder-card" + (d.has_urgent ? " ai-reminder-urgent" : "");
+                area.innerHTML = '<div class="' + cls + '"><div class="ai-reminder-header"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span>AI 提醒</span></div><div class="ai-reminder-body">' + formatAiMessage(d.reminders) + '</div></div>';
+            }
+        } catch(e) {}
+    }
+
+    // ── 会话列表管理 ──
+    async function loadConvList(convType) {
+        currentConvType = convType || "general";
+        try {
+            const r = await fetch(API + "/conversations?conv_type=" + encodeURIComponent(currentConvType), { headers: authHeaders() });
+            const d = await r.json();
+            convListData = d.items || d.conversations || d.data || [];
+            renderConvList();
+        } catch(e) {
+            convListData = [];
+            renderConvList();
+        }
+    }
+
+    function renderConvList() {
+        const listEl = document.getElementById("convList");
+        if (!listEl) return;
+        if (!convListData.length) {
+            listEl.innerHTML = '<div class="conv-empty">暂无会话</div>';
+            return;
+        }
+        let html = "";
+        convListData.forEach(function(conv) {
+            const isActive = (conv.id === currentConvId);
+            const title = conv.title || "新对话";
+            const time = conv.updated_at || conv.created_at || "";
+            html += '<div class="conv-item' + (isActive ? ' active' : '') + '" onclick="selectConversation(' + conv.id + ')">';
+            html += '<div class="conv-item-title">' + esc(title) + '</div>';
+            html += '<div class="conv-item-time">' + esc(formatTime(time)) + '</div>';
+            html += '<button class="conv-delete" onclick="event.stopPropagation();deleteConversation(' + conv.id + ')" title="删除会话">';
+            html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+            html += '</button>';
+            html += '</div>';
+        });
+        listEl.innerHTML = html;
+    }
+
+    async function newConversation(convType) {
+        currentConvType = convType || "general";
+        currentConvId = null;
+        agentHistory = [];
+        showWelcomeScreen();
+        renderConvList();
+        setTimeout(function() {
+            const input = document.getElementById("aiPanelInput");
+            if (input) input.focus();
+        }, 50);
+    }
+
+    async function selectConversation(convId) {
+        if (!convId) return;
+        currentConvId = convId;
+        agentHistory = [];
+        hideQuickBar();
+        const body = document.getElementById("aiPanelBody");
+        if (body) body.innerHTML = '<div class="content-empty">加载中...</div>';
+        renderConvList();
+        try {
+            const r = await fetch(API + "/conversations/" + convId + "/messages", { headers: authHeaders() });
+            const d = await r.json();
+            const messages = d.items || d.messages || d.data || [];
+            agentHistory = [];
+            if (body) body.innerHTML = '';
+            if (!messages.length) {
+                restoreAiHistory();
+                return;
+            }
+            messages.forEach(function(msg) {
+                const role = msg.role === "user" ? "user" : "ai";
+                const content = msg.content || msg.message || "";
+                appendPanelMsg(role, content);
+                agentHistory.push({ role: msg.role === "user" ? "user" : "assistant", content: content });
+            });
+            saveAiHistory();
+        } catch(e) {
+            if (body) body.innerHTML = '';
+            appendPanelMsg("ai", "加载会话失败：" + e.message);
+        }
+    }
+
+    async function deleteConversation(convId) {
+        if (!convId) return;
+        if (!confirm("确定要删除这个会话吗？")) return;
+        try {
+            const r = await fetch(API + "/conversations/" + convId, {
+                method: "DELETE",
+                headers: authHeaders()
+            });
+            if (r.ok) {
+                toast("已删除会话", "success");
+                // 如果删除的是当前会话，清空内容
+                if (currentConvId === convId) {
+                    currentConvId = null;
+                    agentHistory = [];
+                    const body = document.getElementById("aiPanelBody");
+                    if (body) body.innerHTML = '';
+                    restoreAiHistory();
+                }
+                // 刷新列表
+                loadConvList(currentConvType);
+            } else {
+                toast("删除失败", "error");
+            }
+        } catch(e) {
+            toast("删除失败: " + e.message, "error");
+        }
+    }
+    function appendPanelMsg(role, text) {
+        const body = document.getElementById("aiPanelBody");
+        if (!body) return;
+        const div = document.createElement("div");
+        div.className = "chat-msg " + (role === "user" ? "me" : "ai");
+        // 气泡
+        const bubble = document.createElement("div");
+        bubble.className = "chat-bubble";
+        if (role === "ai") {
+            bubble.innerHTML = formatAiMessage(text);
+            const copyBtn = document.createElement("button");
+            copyBtn.className = "chat-copy-btn";
+            copyBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+            copyBtn.title = "复制";
+            copyBtn.onclick = function() { navigator.clipboard.writeText(text); toast("已复制", "success"); };
+            bubble.appendChild(copyBtn);
+        } else {
+            bubble.textContent = text;
+        }
+        div.appendChild(bubble);
+        body.appendChild(div);
+        body.scrollTop = body.scrollHeight;
+    }
+    function formatAiMessage(text) {
+        // Simple markdown: bold, line breaks, bullet points, code blocks
+        let html = esc(text);
+        // Code blocks
+        html = html.replace(/```([\s\S]*?)```/g, function(m, p1) {
+            return '<pre class="ai-code-block">' + esc(p1.trim()) + '</pre>';
+        });
+        // Inline code
+        html = html.replace(/`([^`]+)`/g, '<code class="ai-inline-code">$1</code>');
+        // Bold
+        html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        // Bullet points
+        html = html.replace(/^• (.+)$/gm, '<li>$1</li>');
+        html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+        html = html.replace(/(<li>[\s\S]*?<\/li>)/g, function(m) {
+            return m.replace(/\n/g, '');
+        });
+        html = html.replace(/(<li>.*?<\/li>(?:<li>.*?<\/li>)*)/gs, '<ul>$1</ul>');
+        // Line breaks
+        html = html.replace(/\n/g, '<br>');
+        return html;
+    }
+    function clearAiChat() {
+        // 开启新对话，而不是只清空本地历史
+        newConversation(currentConvType || "general");
+    }
+
+    async function openMemoryDialog() {
+        var overlay = document.createElement("div");
+        overlay.className = "dialog-overlay";
+        overlay.style.cssText = "display:flex;align-items:center;justify-content:center;z-index:9999;";
+        overlay.innerHTML = '<div class="dialog followup-dialog" style="width:560px;max-width:96vw;"><div class="dialog-header"><h3>AI 记忆</h3><button class="dialog-close" onclick="this.closest(\'.dialog-overlay\').remove()">×</button></div><div class="dialog-body"><div class="ai-memory-panel" id="memoryPanelContent">加载中...</div></div></div>';
+        document.body.appendChild(overlay);
+        overlay.addEventListener("click", function(e) { if (e.target === overlay) overlay.remove(); });
+        try {
+            var r = await fetch(API + "/ai/memories", { headers: authHeaders() });
+            var d = await r.json();
+            var items = d.items || [];
+            var el = document.getElementById("memoryPanelContent");
+            if (!el) return;
+            if (items.length === 0) {
+                el.innerHTML = '<div class="ai-memory-empty">AI 还没有记忆。<br>在对话中告诉 AI "记住..." 即可保存指令。</div>';
+                return;
+            }
+            var html = "";
+            items.forEach(function(m) {
+                html += '<div class="ai-memory-item">';
+                html += '<span class="ai-memory-key">' + esc(m.key) + '</span>';
+                html += '<span class="ai-memory-content">' + esc(m.content) + '</span>';
+                html += '<button class="ai-memory-del" onclick="deleteMemory(' + m.id + ')" title="删除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>';
+                html += '</div>';
+            });
+            el.innerHTML = html;
+        } catch(e) {
+            var el2 = document.getElementById("memoryPanelContent");
+            if (el2) el2.innerHTML = '<div class="ai-memory-empty">加载失败: ' + esc(e.message) + '</div>';
+        }
+    }
+
+    async function deleteMemory(memId) {
+        try {
+            await fetch(API + "/ai/memories/" + memId, { method: "DELETE", headers: authHeaders() });
+            toast("已删除记忆", "success");
+            // 刷新记忆面板
+            var overlay = document.querySelector(".dialog-overlay");
+            if (overlay) overlay.remove();
+            openMemoryDialog();
+        } catch(e) {
+            toast("删除失败: " + e.message, "error");
+        }
+    }
+    function saveAiHistory() {
+        try {
+            localStorage.setItem("ai_chat_history", JSON.stringify(agentHistory.slice(-20)));
+        } catch(e) {}
+    }
+    function restoreAiHistory() {
+        try {
+            const saved = localStorage.getItem("ai_chat_history");
+            if (saved) {
+                const history = JSON.parse(saved);
+                if (Array.isArray(history) && history.length > 0) {
+                    agentHistory = history;
+                    history.forEach(function(msg) {
+                        appendPanelMsg(msg.role === "user" ? "user" : "ai", msg.content);
+                    });
+                    return;
+                }
+            }
+        } catch(e) {}
+        appendPanelMsg("ai", "你好，我是 AI 助手，你的 CRM 智能助理 + Agent。\n\n**我能做的事情：**\n• 修改客户优先级 / 等级 / 画像摘要\n• 搜索客户、查看客户详情\n• 按规则生成跟进计划、标记跟进完成\n• 标记邮件已读、生成邮件回复草稿\n• 总结未回复邮件、分析客户跟进情况\n• 根据你喂养的知识给出业务建议\n• 主动提醒你逾期跟进和未读重要邮件\n\n**试试这些指令：**\n• \"把XX客户改为高优先级\"\n• \"搜索张三的客户信息\"\n• \"生成跟进计划\"\n• \"总结最近的邮件\"\n• \"帮我写封英文回复给XX\"\n\n请告诉我你想做什么？");
+    }
+    async function sendAgentMessage(presetText) {
+        const input = document.getElementById("aiPanelInput");
+        const text = (presetText !== undefined ? presetText : (input ? input.value.trim() : "")).toString();
+        if (!text) return;
+        if (input) input.value = "";
+        hideQuickBar();
+        appendPanelMsg("user", text);
+        // 不在发送前 push 到 history，避免后端收到重复消息
+        const sendHistory = agentHistory.slice(-10);
+        const body = document.getElementById("aiPanelBody");
+        const tip = document.createElement("div");
+        tip.className = "chat-msg ai";
+        const tipBubble = document.createElement("div");
+        tipBubble.className = "chat-bubble chat-typing";
+        tipBubble.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+        tip.appendChild(tipBubble);
+        body.appendChild(tip);
+        body.scrollTop = body.scrollHeight;
+        try {
+            const reqBody = {
+                message: text,
+                customer_id: selectedCustomerId || null,
+                history: sendHistory,
+                conversation_id: currentConvId,
+                conv_type: currentConvType,
+                email_id: selectedEmailId || null
+            };
+            const r = await fetch(API + "/ai/agent", {
+                method: "POST",
+                headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+                body: JSON.stringify(reqBody),
+            });
+            const d = await r.json();
+            tip.remove();
+            // 先显示动作结果（不等打字机），让用户立即看到执行情况
+            if (d.actions && d.actions.length) {
+                const wrap = document.createElement("div");
+                wrap.className = "agent-results";
+                d.actions.forEach(function(a) {
+                    const s = document.createElement("span");
+                    s.className = "agent-result-chip " + (a.ok ? "" : "agent-result-fail");
+                    const icon = a.ok
+                        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><polyline points="20 6 9 17 4 12"/></svg>'
+                        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+                    s.innerHTML = icon + esc(a.msg || (a.ok ? "已执行" : "执行失败"));
+                    wrap.appendChild(s);
+                });
+                body.appendChild(wrap);
+            }
+            // Typewriter effect
+            await typewriterEffect(d.reply || "（无回复）");
+            // 保存到历史
+            agentHistory.push({ role: "user", content: text });
+            agentHistory.push({ role: "assistant", content: d.reply || "" });
+            saveAiHistory();
+            // 如果后端返回了新的 conversation_id，更新当前会话并刷新列表
+            if (d.conversation_id) {
+                currentConvId = d.conversation_id;
+                loadConvList(currentConvType);
+            }
+            body.scrollTop = body.scrollHeight;
+        } catch(e) {
+            tip.remove();
+            appendPanelMsg("ai", "请求失败：" + e.message + "。请检查网络连接后重试。");
+        }
+    }
+    async function typewriterEffect(text) {
+        const body = document.getElementById("aiPanelBody");
+        const div = document.createElement("div");
+        div.className = "chat-msg ai";
+        const bubble = document.createElement("div");
+        bubble.className = "chat-bubble";
+        div.appendChild(bubble);
+        body.appendChild(div);
+        // 点击跳过
+        let skipped = false;
+        const skipHandler = function() { skipped = true; };
+        bubble.style.cursor = "pointer";
+        bubble.addEventListener("click", skipHandler);
+        const chars = text.split('');
+        let displayed = '';
+        for (let i = 0; i < chars.length; i++) {
+            if (skipped) { displayed = text; break; }
+            displayed += chars[i];
+            bubble.innerHTML = formatAiMessage(displayed);
+            body.scrollTop = body.scrollHeight;
+            const delay = chars.length > 150 ? 3 : (chars.length > 60 ? 8 : 14);
+            await new Promise(function(r) { setTimeout(r, delay); });
+        }
+        bubble.removeEventListener("click", skipHandler);
+        bubble.style.cursor = "";
+        bubble.innerHTML = formatAiMessage(text);
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "chat-copy-btn";
+        copyBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        copyBtn.title = "复制";
+        copyBtn.onclick = function() { navigator.clipboard.writeText(text); toast("已复制", "success"); };
+        bubble.appendChild(copyBtn);
+    }
+
+    // ── 喂数据（养 AI 模型） ──
+    function openFeedDialog() {
+        document.getElementById("feedOverlay").classList.add("show");
+        document.getElementById("feedContent").value = "";
+    }
+    function closeFeedDialog() {
+        document.getElementById("feedOverlay").classList.remove("show");
+    }
+    async function saveFeed() {
+        const content = document.getElementById("feedContent").value.trim();
+        if (!content) { toast("请输入要喂入的内容", "error"); return; }
+        try {
+            const r = await fetch(API + "/ai/feed", {
+                method: "POST",
+                headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+                body: JSON.stringify({ content: content }),
+            });
+            const d = await r.json();
+            toast(d.message || "已喂入", "success");
+            closeFeedDialog();
+        } catch(e) { toast("喂入失败: " + e.message, "error"); }
+    }
+
+
+    // ── AI 知识库（查看/删除喂养内容） ──
+    function openKnowledgeDialog() {
+        document.getElementById("knowledgeOverlay").classList.add("show");
+        loadKnowledge();
+    }
+    function closeKnowledgeDialog() {
+        document.getElementById("knowledgeOverlay").classList.remove("show");
+    }
+    async function loadKnowledge() {
+        const list = document.getElementById("knowledgeList");
+        list.innerHTML = '<div class="content-empty">加载中...</div>';
+        try {
+            const r = await fetch(API + "/ai/knowledge", { headers: authHeaders() });
+            const d = await r.json();
+            const items = d.items || [];
+            if (!items.length) {
+                list.innerHTML = '<div class="notif-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>暂无知识，点击「喂数据」给 AI 助手添加</div>';
+                return;
+            }
+            let html = "";
+            items.forEach(function(k) {
+                html += '<div class="knowledge-item">';
+                html += '<div class="kn-head"><span class="kn-source">' + esc(k.source || "manual") + '</span><span class="kn-time">' + esc(k.created_at || "") + '</span></div>';
+                html += '<div class="kn-content">' + esc(k.content) + '</div>';
+                html += '<div class="kn-ops"><button class="fu-op skip kn-del" onclick="deleteKnowledge(' + k.id + ')">删除</button></div>';
+                html += '</div>';
+            });
+            list.innerHTML = html;
+        } catch(e) {
+            list.innerHTML = '<div style="color:#DC2626;padding:12px;">加载失败：' + esc(e.message) + '</div>';
+        }
+    }
+    async function deleteKnowledge(id) {
+        if (!confirm("确定删除这条知识吗？")) return;
+        try {
+            const r = await fetch(API + "/ai/knowledge/" + id, { method: "DELETE", headers: authHeaders() });
+            if (r.ok) { toast("已删除", "success"); loadKnowledge(); }
+            else { toast("删除失败", "error"); }
+        } catch(e) { toast("删除失败: " + e.message, "error"); }
+    }
+    // ── 客户跟进计划 ──
+    function openFollowupDialog(customerId) {
+        followupCustomerId = customerId || null;
+        document.getElementById("fuGenerateBtn").innerHTML = (customerId ? '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg> 为此客户生成' : '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg> 按规则生成');
+        document.getElementById("followupOverlay").classList.add("show");
+        loadFollowups();
+    }
+    function closeFollowupDialog() {
+        document.getElementById("followupOverlay").classList.remove("show");
+    }
+    async function loadFollowups() {
+        const tbody = document.getElementById("followupTbody");
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94A3B8;padding:16px;">加载中...</td></tr>';
+        try {
+            const r = await fetch(API + "/followups", { headers: authHeaders() });
+            const d = await r.json();
+            let items = d.items || [];
+            if (followupCustomerId) items = items.filter(function(i) { return i.customer_id === followupCustomerId; });
+            renderFollowupRows(items);
+        } catch(e) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#DC2626;padding:16px;">加载失败</td></tr>';
+        }
+    }
+    function renderFollowupRows(items) {
+        const tbody = document.getElementById("followupTbody");
+        if (!items.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94A3B8;padding:20px;">暂无跟进计划，点击「按规则生成」创建</td></tr>'; return; }
+        let html = "";
+        items.forEach(function(f) {
+            const pCls = f.priority === "hot" ? "hot" : f.priority === "warm" ? "warm" : "cold";
+            html += '<tr><td class="fu-cust">' + esc(f.customer_name) + (f.grade ? ' <span class="grade-badge grade-' + String(f.grade).toLowerCase() + '">' + esc(f.grade) + '</span>' : "") + '</td>';
+            html += '<td>' + (f.grade || "-") + '</td>';
+            html += '<td><span class="tl-dot ' + pCls + '"></span></td>';
+            html += '<td class="fu-sum">' + esc((f.summary || "").substring(0, 40)) + '</td>';
+            html += '<td>' + esc(f.next_date) + '</td>';
+            html += '<td>' + (f.status === "done" ? '<span class="badge-replied">已完成</span>' : f.status === "skipped" ? '<span class="badge-noreply">已跳过</span>' : '<span class="badge-inline warm">待跟进</span>') + '</td>';
+            html += '<td class="fu-ops">';
+            if (f.status === "pending") html += '<button class="fu-op" onclick="setFollowupStatus(' + f.id + ',\'done\')">完成</button><button class="fu-op skip" onclick="setFollowupStatus(' + f.id + ',\'skipped\')">跳过</button>';
+            html += '</td></tr>';
+        });
+        tbody.innerHTML = html;
+    }
+    async function generateFollowups() {
+        const url = followupCustomerId ? (API + "/followups/generate/" + followupCustomerId) : (API + "/followups/generate");
+        try {
+            const r = await fetch(url, { method: "POST", headers: authHeaders() });
+            const d = await r.json();
+            toast("已生成 " + (d.generated || 0) + " 条跟进计划", "success");
+            loadFollowups();
+        } catch(e) { toast("生成失败: " + e.message, "error"); }
+    }
+    async function setFollowupStatus(id, status) {
+        try {
+            await fetch(API + "/followups/" + id + "/status", {
+                method: "POST",
+                headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+                body: JSON.stringify({ status: status }),
+            });
+            loadFollowups();
+        } catch(e) { toast("操作失败", "error"); }
+    }
+    let rulesEditing = false;
+    async function toggleRulesEdit() {
+        const box = document.getElementById("rulesBox");
+        rulesEditing = !rulesEditing;
+        if (!rulesEditing) { box.style.display = "none"; return; }
+        box.style.display = "block";
+        try {
+            const r = await fetch(API + "/followups/rules", { headers: authHeaders() });
+            const d = await r.json();
+            let html = '<div class="rules-title">跟进规则（等级/优先级 → 间隔天数）</div>';
+            html += '<div class="rules-rows">';
+            (d.rules || []).forEach(function(rule, i) {
+                html += '<div class="rule-row"><span class="rule-name">' + esc(rule.name) + '</span><input type="number" min="1" id="ruleDays' + i + '" value="' + rule.interval_days + '" class="rule-input"> <span>天</span></div>';
+            });
+            html += '</div>';
+            html += '<button class="wa-btn wa-btn-import" style="margin-top:12px;" onclick="saveRules()">保存规则</button>';
+            box.innerHTML = html;
+        } catch(e) { box.innerHTML = '<div style="color:#DC2626;padding:8px;">加载失败</div>'; }
+    }
+    async function saveRules() {
+        try {
+            const r = await fetch(API + "/followups/rules", { headers: authHeaders() });
+            const d = await r.json();
+            const rules = (d.rules || []).map(function(rule, i) {
+                const el = document.getElementById("ruleDays" + i);
+                return { name: rule.name, grade: rule.grade, priority: rule.priority, interval_days: el ? (parseInt(el.value) || rule.interval_days) : rule.interval_days };
+            });
+            await fetch(API + "/followups/rules", {
+                method: "POST",
+                headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+                body: JSON.stringify({ rules: rules }),
+            });
+            toast("跟进规则已保存", "success");
+            toggleRulesEdit();
+        } catch(e) { toast("保存失败", "error"); }
+    }
+
+    // ── 拉取邮件后筛选（保留/删除） ──
+    function openFetchReview(emails, pending) {
+        fetchReviewEmails = (emails || []).map(function(e) { return Object.assign({}, e, { del: false }); });
+        fetchReviewPending = pending || null;
+        const list = document.getElementById("reviewList");
+        let html = "";
+        fetchReviewEmails.forEach(function(e, i) {
+            html += '<label class="review-item"><input type="checkbox" id="revChk' + i + '"><span class="rev-info"><span class="rev-subject">' + esc(e.subject || "(无主题)") + '</span><span class="rev-sender">' + esc(e.sender || e.customer_name || "") + '</span></span></label>';
+        });
+        list.innerHTML = html;
+        document.getElementById("fetchReviewOverlay").classList.add("show");
+    }
+    function closeFetchReview(keepAll) {
+        document.getElementById("fetchReviewOverlay").classList.remove("show");
+        if (keepAll) afterFetchReview();
+    }
+    async function confirmFetchReview() {
+        const toDelete = [];
+        fetchReviewEmails.forEach(function(e, i) {
+            const chk = document.getElementById("revChk" + i);
+            if (chk && chk.checked) toDelete.push(e.id);
+        });
+        if (!toDelete.length) { toast("未选择删除，全部保留", "info"); closeFetchReview(true); return; }
+        let del = 0;
+        for (let i = 0; i < toDelete.length; i++) {
+            try { const r = await fetch(API + "/emails/" + toDelete[i], { method: "DELETE", headers: authHeaders() }); if (r.ok) del++; } catch(e) {}
+        }
+        toast("已删除 " + del + " 封邮件" + (toDelete.length - del > 0 ? "（" + (toDelete.length - del) + " 失败）" : ""), "success");
+        closeFetchReview(true);
+    }
+    function afterFetchReview() {
+        const d = fetchReviewPending || {};
+        loadAllData().then(function() {
+            renderView();
+            if (d.analyzing) startAnalyzePolling();
+        });
+    }
+
+    init();
+</script>
+
+</body>
+</html>

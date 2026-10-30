@@ -1,0 +1,261 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>AI CRM - 邮件详情</title>
+    <link rel="stylesheet" href="/static/css/style.css?v=57">
+    <script src="/static/js/common.js?v=51"></script>
+</head>
+<body>
+
+<div class="detail-page-header">
+    <div>
+        <h1>AI CRM 系统</h1>
+        <div class="subtitle">邮件详情</div>
+    </div>
+    <div class="header-actions" id="headerActions"></div>
+</div>
+
+<div class="detail-page-container" id="emailDetailContainer">
+    <a href="/" class="detail-page-back"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg> 返回列表</a>
+    <div class="loading" id="loadingState">
+        <div class="spinner"></div>
+        <div>加载中...</div>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+    const API = location.origin + "/api";
+
+    // 获取邮件 ID
+    const pathParts = location.pathname.split("/");
+    const emailId = pathParts[pathParts.length - 1];
+
+    let emailData = null;
+
+    async function init() {
+        // 注入 header
+        if (typeof injectHeaderExtras === "function") injectHeaderExtras();
+        if (typeof loadAiStatus === "function") loadAiStatus();
+        if (typeof checkAuth === "function") {
+            const ok = await checkAuth();
+            if (!ok) {
+                location.href = "/login";
+                return;
+            }
+        }
+        await loadEmailDetail();
+    }
+
+    async function loadEmailDetail() {
+        try {
+            const r = await fetch(API + "/emails/" + emailId, { headers: authHeaders() });
+            if (!r.ok) {
+                throw new Error("加载失败");
+            }
+            emailData = await r.json();
+            renderEmailDetail();
+        } catch(e) {
+            document.getElementById("loadingState").innerHTML = 
+                '<div class="content-empty"><div class="empty-text">加载失败: ' + esc(e.message) + '</div></div>';
+        }
+    }
+
+    function priorityLabel(p) {
+        const map = { hot: "高优先级", warm: "中优先级", cold: "低优先级" };
+        return map[p] || p || "低优先级";
+    }
+
+    function priorityClass(p) {
+        return p || "cold";
+    }
+
+    function formatTime(t) {
+        if (!t) return "";
+        try {
+            const d = new Date(t);
+            return d.getFullYear() + "-" + 
+                String(d.getMonth() + 1).padStart(2, "0") + "-" +
+                String(d.getDate()).padStart(2, "0") + " " +
+                String(d.getHours()).padStart(2, "0") + ":" +
+                String(d.getMinutes()).padStart(2, "0");
+        } catch(e) { return t; }
+    }
+
+    function renderEmailDetail() {
+        const e = emailData;
+        const a = e.analysis;
+        const container = document.getElementById("emailDetailContainer");
+
+        let html = '<a href="/" class="detail-page-back"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg> 返回列表</a>';
+
+        // 邮件头部
+        html += '<div class="detail-page-header-card">';
+        html += '<div class="dh-top"><span class="badge-inline ' + priorityClass(a ? a.priority : "cold") + '">' + priorityLabel(a ? a.priority : "cold") + '</span>';
+        if (a && a.replied) {
+            html += '<span class="badge-replied">已回复</span>';
+        }
+        if (a && a.no_reply_needed) {
+            html += '<span class="badge-noreply">无需回复</span>';
+        }
+        html += '</div>';
+        html += '<h2>' + esc(e.subject || "(无主题)") + '</h2>';
+        html += '<div class="meta">';
+        html += '<span><span class="meta-label">发件人:</span> <span class="meta-value">' + esc(e.sender || "") + '</span></span>';
+        if (e.customer_name) {
+            html += '<span><span class="meta-label">客户:</span> <span class="meta-value"><a href="/customer/' + e.customer_id + '" style="color:var(--primary);text-decoration:none;">' + esc(e.customer_name) + '</a></span></span>';
+        }
+        html += '<span><span class="meta-label">时间:</span> <span class="meta-value">' + formatTime(e.received_at) + '</span></span>';
+        html += '</div>';
+        
+        // 操作按钮
+        html += '<div class="dh-actions">';
+        // 标记已回复/取消
+        if (a && !a.replied) {
+            html += '<button class="detail-action-btn success" onclick="markReplied()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 标记为已回复</button>';
+        } else if (a && a.replied) {
+            html += '<button class="detail-action-btn secondary" onclick="unmarkReplied()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg> 取消已回复标记</button>';
+        }
+        // 重新分析
+        html += '<span class="draft-lang-wrap">草稿语言<button class="draft-lang active" data-lang="en" onclick="setDraftLang(&#39;en&#39;, this)">英文</button><button class="draft-lang" data-lang="zh" onclick="setDraftLang(&#39;zh&#39;, this)">中文</button></span>';
+        html += '<button class="detail-action-btn primary" onclick="reanalyze()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg> 重新 AI 分析</button>';
+        // 回复
+        html += '<button class="detail-action-btn" onclick="openReply()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg> 回复邮件</button>';
+        // 删除
+        html += '<button class="detail-action-btn danger" onclick="deleteEmail()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> 删除邮件</button>';
+        html += '</div>';
+        html += '</div>';
+
+        // 邮件正文
+        html += '<div class="detail-page-card">';
+        html += '<h3>邮件正文</h3>';
+        html += '<div class="detail-page-email-body">' + esc(e.body_text ? e.body_text.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'") : "(无正文内容)") + '</div>';
+        html += '</div>';
+
+        // AI 分析结果
+        if (a && a.intent) {
+            html += '<div class="detail-page-analysis-card">';
+            html += '<h3><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg> AI 分析结果</h3>';
+            html += '<div class="ed-analysis-row"><div class="ar-label">意图</div><div class="ar-value">' + esc(a.intent || "-") + '</div></div>';
+            html += '<div class="ed-analysis-row"><div class="ar-label">优先级</div><div class="ar-value"><span class="badge-inline ' + priorityClass(a.priority) + '">' + priorityLabel(a.priority) + '</span></div></div>';
+            html += '<div class="ed-analysis-row"><div class="ar-label">摘要</div><div class="ar-value">' + esc(a.summary || "-") + '</div></div>';
+            html += '<div class="ed-analysis-row"><div class="ar-label">下一步建议</div><div class="ar-value">' + esc(a.next_action || "-") + '</div></div>';
+            html += '</div>';
+
+            // 回复草稿
+            if (a.reply_draft) {
+                html += '<div class="detail-page-draft-box">';
+                html += '<h3><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg> AI 回复草稿 <span class="draft-lang-badge">' + (draftLang === 'zh' ? '中文' : '英文') + '</span></h3>';
+                html += '<textarea id="replyDraft" rows="8">' + esc(a.reply_draft) + '</textarea>';
+                html += '<div class="ed-draft-actions">';
+                html += '<button class="detail-action-btn primary" onclick="copyDraft()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> 复制草稿</button>';
+                html += '<button class="detail-action-btn" onclick="openReplyWithDraft()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg> 用此草稿回复</button>';
+                html += '</div>';
+                html += '</div>';
+            }
+        } else {
+            html += '<div class="detail-page-card"><div class="ed-no-analysis">';
+            html += '<div class="empty-icon"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></div>';
+            html += '<p>此邮件尚未进行 AI 分析</p>';
+            html += '<button class="detail-action-btn primary" style="margin-top:12px;" onclick="reanalyze()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg> 开始 AI 分析</button>';
+            html += '</div></div>';
+        }
+
+        container.innerHTML = html;
+    }
+
+    async function markReplied() {
+        try {
+            await apiPost("/email/mark-replied", { email_id: parseInt(emailId) });
+            toast("已标记为已回复", "success");
+            await loadEmailDetail();
+        } catch(e) {
+            toast("操作失败: " + e.message, "error");
+        }
+    }
+
+    async function unmarkReplied() {
+        try {
+            await apiPost("/email/unmark-replied", { email_id: parseInt(emailId) });
+            toast("已取消回复标记", "success");
+            await loadEmailDetail();
+        } catch(e) {
+            toast("操作失败: " + e.message, "error");
+        }
+    }
+
+    let draftLang = "en";
+    function setDraftLang(lang, btn) {
+        draftLang = lang;
+        document.querySelectorAll(".draft-lang").forEach(function(b) { b.classList.remove("active"); });
+        if (btn) btn.classList.add("active");
+        document.querySelectorAll(".draft-lang-badge").forEach(function(b) { b.textContent = lang === "zh" ? "中文" : "英文"; });
+    }
+
+    async function reanalyze() {
+        toast("AI 分析中...", "info");
+        try {
+            await apiPost("/email/analyze", { email_id: parseInt(emailId), language: draftLang });
+            toast("AI 分析完成", "success");
+            await loadEmailDetail();
+        } catch(e) {
+            toast("分析失败: " + e.message, "error");
+        }
+    }
+
+    async function deleteEmail() {
+        if (!confirm("确定删除此邮件吗？")) return;
+        try {
+            const r = await fetch(API + "/emails/" + emailId, {
+                method: "DELETE",
+                headers: authHeaders(),
+            });
+            if (r.ok) {
+                toast("邮件已删除", "success");
+                setTimeout(function() { location.href = "/"; }, 800);
+            } else {
+                toast("删除失败", "error");
+            }
+        } catch(e) {
+            toast("网络错误", "error");
+        }
+    }
+
+    function copyDraft() {
+        const ta = document.getElementById("replyDraft");
+        if (ta) {
+            ta.select();
+            document.execCommand("copy");
+            toast("草稿已复制到剪贴板", "success");
+        }
+    }
+
+    async function openReply() {
+        try {
+            const r = await fetch(API + "/email/compose-url", { headers: authHeaders() });
+            if (r.ok) {
+                const d = await r.json();
+                if (d.compose_url) {
+                    window.open(d.compose_url, "_blank");
+                    return;
+                }
+            }
+        } catch(e) {}
+        toast("无法获取回复地址", "error");
+    }
+
+    async function openReplyWithDraft() {
+        await openReply();
+    }
+
+    init();
+</script>
+
+</body>
+</html>

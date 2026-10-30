@@ -1,0 +1,338 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>AI CRM - 登录</title>
+    <link rel="stylesheet" href="/static/css/style.css?v=59">
+    <script src="/static/js/common.js?v=53"></script>
+</head>
+<body class="login-page">
+
+    <div class="login-card">
+        <div class="login-brand">
+            <div class="login-logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+            <h2>AI CRM 系统</h2>
+            <div class="subtitle">智能邮件客户管理助手</div>
+        </div>
+
+        <form id="loginForm" onsubmit="return doLogin(event)">
+            <div class="form-group">
+                <label>邮箱地址</label>
+                <input type="email" id="email" placeholder="请输入您的邮箱地址" required>
+            </div>
+
+            <div class="form-group">
+                <label id="passwordLabel">邮箱密码 / 授权码</label>
+                <input type="password" id="password" placeholder="请输入邮箱密码或授权码" required>
+            </div>
+
+            <div class="form-group" id="providerGroup" style="display:none;">
+                <label>邮箱服务商</label>
+                <select id="provider">
+                    <option value="auto">自动检测</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="customImapGroup" style="display:none;">
+                <label>IMAP 服务器（自定义）</label>
+                <input type="text" id="imapHost" placeholder="如 imap.example.com">
+            </div>
+
+            <div class="form-group" id="customPortGroup" style="display:none;">
+                <label>IMAP 端口</label>
+                <input type="number" id="imapPort" value="993" placeholder="993">
+            </div>
+
+            <div class="form-group">
+                <div class="form-hint" id="authHint">QQ邮箱/163邮箱等请使用授权码，非邮箱登录密码</div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-login" id="loginBtn">
+                <span id="loginBtnText">登录</span>
+            </button>
+
+            <div class="form-error" id="loginError" style="display:none;"></div>
+        </form>
+
+        <div class="saved-accounts" id="savedAccounts" style="display:none;">
+            <div class="sa-title">已保存的账号</div>
+            <div id="savedAccountsList"></div>
+        </div>
+
+        <div class="login-footer">
+            <div class="copyright">AI CRM 系统 v3.0 - 智能客户关系管理</div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        const API = location.origin + "/api";
+
+        // 检查是否已登录
+        (async function() {
+            const token = localStorage.getItem("crm_token");
+            if (token) {
+                try {
+                    const r = await fetch(API + "/auth/status", { headers: { "Authorization": "Bearer " + token } });
+                    const d = await r.json();
+                    if (d.logged_in) {
+                        location.href = "/";
+                        return;
+                    }
+                } catch(e) {}
+            }
+            // token 失效但有保存的账号，自动恢复最近使用的账号
+            let savedIds = [];
+            try { savedIds = JSON.parse(localStorage.getItem("my_account_ids") || "[]"); } catch(e) {}
+            if (savedIds.length > 0) {
+                const lastId = savedIds[savedIds.length - 1];
+                try {
+                    const r = await fetch(API + "/accounts/switch", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ account_id: lastId, my_account_ids: savedIds }),
+                    });
+                    if (r.ok) {
+                        const d = await r.json();
+                        if (d.token) {
+                            localStorage.setItem("crm_token", d.token);
+                            localStorage.setItem("crm_email", d.email);
+                            location.href = "/";
+                            return;
+                        }
+                    }
+                } catch(e) {}
+            }
+            // 加载邮箱服务商列表
+            loadProviders();
+            // 加载已保存账号
+            loadSavedAccounts();
+        })();
+
+        async function loadProviders() {
+            try {
+                const r = await fetch(API + "/email/providers");
+                const providers = await r.json();
+                const sel = document.getElementById("provider");
+                providers.forEach(function(p) {
+                    const opt = document.createElement("option");
+                    opt.value = p.id;
+                    opt.textContent = p.name;
+                    sel.appendChild(opt);
+                });
+                // 添加自定义选项
+                const customOpt = document.createElement("option");
+                customOpt.value = "custom";
+                customOpt.textContent = "自定义 (手动填写IMAP)";
+                sel.appendChild(customOpt);
+            } catch(e) {
+                console.error("加载服务商失败:", e);
+            }
+        }
+
+        // 邮箱输入时自动检测服务商
+        document.getElementById("email").addEventListener("blur", async function() {
+            const email = this.value.trim();
+            if (!email) return;
+            try {
+                const r = await fetch(API + "/email/detect-provider?email=" + encodeURIComponent(email));
+                const d = await r.json();
+                if (d.provider_id && d.provider_id !== "custom") {
+                    document.getElementById("provider").value = d.provider_id;
+                    document.getElementById("providerGroup").style.display = "block";
+                }
+                // 更新密码标签
+                if (d.auth_code_label) {
+                    document.getElementById("passwordLabel").textContent = d.auth_code_label;
+                }
+                // 更新提示
+                if (d.help_url) {
+                    document.getElementById("authHint").innerHTML = 
+                        '<a href="' + d.help_url + '" target="_blank" style="color:var(--primary);">点击查看如何获取授权码</a>';
+                }
+            } catch(e) {}
+        });
+
+        // 服务商选择变化
+        document.getElementById("provider").addEventListener("change", function() {
+            if (this.value === "custom") {
+                document.getElementById("customImapGroup").style.display = "block";
+                document.getElementById("customPortGroup").style.display = "block";
+            } else {
+                document.getElementById("customImapGroup").style.display = "none";
+                document.getElementById("customPortGroup").style.display = "none";
+            }
+        });
+
+        async function loadSavedAccounts() {
+            try {
+                let myIds = [];
+                try { myIds = JSON.parse(localStorage.getItem("my_account_ids") || "[]"); } catch(e) {}
+                if (!myIds.length) return;
+                const r = await fetch(API + "/accounts/list", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ my_account_ids: myIds }),
+                });
+                const accounts = await r.json();
+                if (accounts && accounts.length > 0) {
+                    const container = document.getElementById("savedAccounts");
+                    const list = document.getElementById("savedAccountsList");
+                    list.innerHTML = "";
+                    accounts.forEach(function(a) {
+                        const item = document.createElement("div");
+                        item.className = "saved-account-item";
+                        const avatar = document.createElement("div");
+                        avatar.className = "sa-avatar";
+                        avatar.style.background = "var(--primary)";
+                        avatar.textContent = (a.email || "U")[0].toUpperCase();
+                        const info = document.createElement("div");
+                        info.className = "sa-info";
+                        info.innerHTML = '<div class="sa-email">' + esc(a.email) + '</div>' +
+                            '<div class="sa-provider">' + esc(a.provider_name || "") + '</div>';
+                        info.onclick = function() { switchAccount(a.id); };
+                        const delBtn = document.createElement("span");
+                        delBtn.className = "sa-delete";
+                        delBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+                        delBtn.title = "删除账号";
+                        delBtn.onclick = function(e) { e.stopPropagation(); deleteAccount(a.id); };
+                        item.appendChild(avatar);
+                        item.appendChild(info);
+                        item.appendChild(delBtn);
+                        list.appendChild(item);
+                    });
+                    container.style.display = "block";
+                }
+            } catch(e) {
+                console.error("加载已保存账号失败:", e);
+            }
+        }
+
+        async function switchAccount(accountId) {
+            try {
+                let myIds = [];
+                try { myIds = JSON.parse(localStorage.getItem("my_account_ids") || "[]"); } catch(e) {}
+                const r = await fetch(API + "/accounts/switch", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ account_id: accountId, my_account_ids: myIds }),
+                });
+                const d = await r.json();
+                if (d.token) {
+                    localStorage.setItem("crm_token", d.token);
+                    localStorage.setItem("crm_email", d.email);
+                    // 保存 account_id 到 localStorage
+                    let ids = [];
+                    try { ids = JSON.parse(localStorage.getItem("my_account_ids") || "[]"); } catch(e) {}
+                    if (d.account_id && ids.indexOf(d.account_id) === -1) {
+                        ids.push(d.account_id);
+                        localStorage.setItem("my_account_ids", JSON.stringify(ids));
+                    }
+                    showToast("切换成功，正在跳转...", "success");
+                    setTimeout(function() { location.href = "/"; }, 800);
+                } else {
+                    showToast(d.detail || d.message || "切换失败", "error");
+                }
+            } catch(e) {
+                showToast("网络错误: " + e.message, "error");
+            }
+        }
+
+        async function deleteAccount(accountId) {
+            if (!confirm("确定删除此账号及其所有数据吗？")) return;
+            try {
+                let myIds = [];
+                try { myIds = JSON.parse(localStorage.getItem("my_account_ids") || "[]"); } catch(e) {}
+                const r = await fetch(API + "/accounts/delete", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ account_id: accountId, my_account_ids: myIds }),
+                });
+                if (r.ok) {
+                    let ids = myIds.filter(function(id) { return id !== accountId; });
+                    localStorage.setItem("my_account_ids", JSON.stringify(ids));
+                    showToast("账号已删除", "success");
+                    loadSavedAccounts();
+                } else {
+                    showToast("删除失败", "error");
+                }
+            } catch(e) {
+                showToast("网络错误", "error");
+            }
+        }
+
+        async function doLogin(event) {
+            event.preventDefault();
+            const email = document.getElementById("email").value.trim();
+            const password = document.getElementById("password").value;
+            const providerVal = document.getElementById("provider").value;
+            const imapHost = document.getElementById("imapHost").value.trim();
+            const imapPort = parseInt(document.getElementById("imapPort").value) || 993;
+
+            const btn = document.getElementById("loginBtn");
+            const btnText = document.getElementById("loginBtnText");
+            const errEl = document.getElementById("loginError");
+
+            btn.disabled = true;
+            btnText.textContent = "登录中...";
+            errEl.style.display = "none";
+
+            try {
+                const body = {
+                    email: email,
+                    password: password,
+                    provider_id: providerVal || "auto",
+                };
+                if (providerVal === "custom") {
+                    body.imap_host = imapHost;
+                    body.imap_port = imapPort;
+                }
+
+                const r = await fetch(API + "/auth/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body),
+                });
+                const d = await r.json();
+
+                if (r.ok && d.token) {
+                    localStorage.setItem("crm_token", d.token);
+                    localStorage.setItem("crm_email", d.email);
+                    // 保存 account_id
+                    let ids = [];
+                    try { ids = JSON.parse(localStorage.getItem("my_account_ids") || "[]"); } catch(e) {}
+                    if (d.account_id && ids.indexOf(d.account_id) === -1) {
+                        ids.push(d.account_id);
+                        localStorage.setItem("my_account_ids", JSON.stringify(ids));
+                    }
+                    showToast("登录成功，正在跳转...", "success");
+                    setTimeout(function() { location.href = "/"; }, 800);
+                } else {
+                    errEl.textContent = d.detail || d.message || "登录失败";
+                    errEl.style.display = "block";
+                    btn.disabled = false;
+                    btnText.textContent = "登录";
+                }
+            } catch(e) {
+                errEl.textContent = "网络错误: " + e.message;
+                errEl.style.display = "block";
+                btn.disabled = false;
+                btnText.textContent = "登录";
+            }
+            return false;
+        }
+
+        function showToast(msg, type) {
+            const t = document.getElementById("toast");
+            t.textContent = msg;
+            t.className = "toast show " + (type || "info");
+            setTimeout(function() { t.classList.remove("show"); }, 3000);
+        }
+    </script>
+</body>
+</html>

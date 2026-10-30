@@ -1,0 +1,582 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>AI CRM - 客户详情</title>
+    <link rel="stylesheet" href="/static/css/style.css?v=57">
+    <script src="/static/js/common.js?v=51"></script>
+</head>
+<body>
+
+<div class="detail-page-header">
+    <div>
+        <h1>AI CRM 系统</h1>
+        <div class="subtitle">客户详情</div>
+    </div>
+    <div class="header-actions" id="headerActions"></div>
+</div>
+
+<div class="detail-page-container" id="customerDetailContainer">
+    <a href="/" class="detail-page-back"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg> 返回列表</a>
+    <div class="loading" id="loadingState">
+        <div class="spinner"></div>
+        <div>加载中...</div>
+    </div>
+</div>
+
+<!-- WhatsApp 导入弹窗 -->
+<div class="wa-dialog-overlay" id="waImportOverlay">
+    <div class="wa-dialog">
+        <div class="wa-dialog-header">
+            <h3>导入 WhatsApp 聊天记录</h3>
+            <button class="wa-dialog-close" onclick="closeWaImport()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="wa-dialog-body">
+            <div style="margin-bottom:12px;">
+                <div class="upload-text" style="margin-bottom:6px;">方式一：粘贴聊天记录文本</div>
+                <textarea id="waTextInput" placeholder="将 WhatsApp 导出的聊天记录粘贴到这里&#10;只要是 WhatsApp 导出的文本即可，系统会自动识别格式&#10;支持 Android / iOS / WhatsApp Web 等各种导出格式"></textarea>
+            </div>
+            <div class="wa-or">— 或者 —</div>
+            <div style="margin-top:12px;">
+                <div class="upload-text" style="margin-bottom:6px;">方式二：上传聊天记录文件</div>
+                <label class="wa-file-upload">
+                    <input type="file" id="waFileInput" accept=".txt,.csv,.log,.text" onchange="onWaFileSelected(event)">
+                    <div class="upload-text">点击选择文件</div>
+                    <div class="upload-hint">支持 WhatsApp 导出的文本文件（自动识别编码和格式）</div>
+                </label>
+                <div id="waFileName" class="wa-file-name" style="display:none;"></div>
+            </div>
+        </div>
+        <div class="wa-dialog-footer">
+            <button class="wa-btn wa-btn-cancel" onclick="closeWaImport()">取消</button>
+            <button class="wa-btn wa-btn-import" id="waImportBtn" onclick="doWaImport()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 导入</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- 编辑客户对话框 -->
+<div class="wa-dialog-overlay" id="editCustomerOverlay">
+    <div class="wa-dialog edit-dialog">
+        <div class="wa-dialog-header">
+            <h3><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg> 编辑客户 · <span id="editCustomerName"></span></h3>
+            <button class="wa-dialog-close" onclick="closeEditDialog()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="wa-dialog-body">
+            <div class="edit-grid">
+                <div class="form-group">
+                    <label>优先等级</label>
+                    <select id="editPriority">
+                        <option value="hot">高优先级</option>
+                        <option value="warm">中优先级</option>
+                        <option value="cold">低优先级</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>客户等级</label>
+                    <select id="editGrade">
+                        <option value="">未分级</option>
+                        <option value="A">A 级 · 重点客户</option>
+                        <option value="B">B 级 · 潜力客户</option>
+                        <option value="C">C 级 · 普通客户</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>客户类型</label>
+                <input type="text" id="editCustomerType" placeholder="如：经销商 / 终端用户">
+            </div>
+            <div class="form-group">
+                <label>公司规模</label>
+                <input type="text" id="editCompanySize" placeholder="如：中型企业">
+            </div>
+            <div class="form-group">
+                <label>历史合作摘要</label>
+                <textarea id="editHistorySummary" rows="3" placeholder="客户的采购历史、合作情况、关注产品等"></textarea>
+            </div>
+            <div class="form-group">
+                <label>沟通风格</label>
+                <input type="text" id="editCommStyle" placeholder="如：专业正式、价格敏感">
+            </div>
+            <div class="form-group">
+                <label>风险与机会</label>
+                <textarea id="editRisks" rows="3" placeholder="当前合作中的潜在风险和业务机会"></textarea>
+            </div>
+        </div>
+        <div class="wa-dialog-footer">
+            <button class="wa-btn wa-btn-cancel" onclick="closeEditDialog()">取消</button>
+            <button class="wa-btn wa-btn-import" onclick="saveCustomerEdit()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- AI 对话对话框 -->
+<div class="wa-dialog-overlay" id="aiChatOverlay">
+    <div class="wa-dialog chat-dialog">
+        <div class="wa-dialog-header">
+            <h3><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg> AI 对话 · <span id="chatCustomerName"></span></h3>
+            <button class="wa-dialog-close" onclick="closeChatDialog()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="chat-body" id="chatBody"></div>
+        <div class="chat-input-row">
+            <input type="text" id="chatInput" placeholder="问问 AI 关于这个客户的问题…" onkeydown="if(event.key==='Enter')sendChatMessage()">
+            <button class="wa-btn wa-btn-import" onclick="sendChatMessage()">发送</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+    const API = location.origin + "/api";
+    const pathParts = location.pathname.split("/");
+    const customerId = pathParts[pathParts.length - 1];
+
+    let customerData = null;
+    let waMessages = [];
+    let waAnalysis = null;
+    let selectedWaFile = null;
+
+    async function init() {
+        if (typeof injectHeaderExtras === "function") injectHeaderExtras();
+        if (typeof loadAiStatus === "function") loadAiStatus();
+        if (typeof checkAuth === "function") {
+            const ok = await checkAuth();
+            if (!ok) {
+                location.href = "/login";
+                return;
+            }
+        }
+        await loadCustomerDetail();
+        await loadWaMessages();
+    }
+
+    async function loadCustomerDetail() {
+        try {
+            const r = await fetch(API + "/customers/" + customerId, { headers: authHeaders() });
+            if (!r.ok) throw new Error("加载失败");
+            customerData = await r.json();
+            renderCustomerDetail();
+        } catch(e) {
+            document.getElementById("loadingState").innerHTML = 
+                '<div class="content-empty"><div class="empty-text">加载失败: ' + esc(e.message) + '</div></div>';
+        }
+    }
+
+    async function loadWaMessages() {
+        try {
+            const r = await fetch(API + "/whatsapp/messages/" + customerId, { headers: authHeaders() });
+            if (r.ok) {
+                waMessages = await r.json();
+            }
+        } catch(e) {}
+        
+        // 检查是否已有 WA 分析
+        if (customerData && customerData.profile_summary) {
+            try {
+                const profile = JSON.parse(customerData.profile_summary);
+                if (profile && profile.wa_analysis) {
+                    waAnalysis = profile.wa_analysis;
+                }
+            } catch(e) {}
+        }
+        renderWaSection();
+    }
+
+    function priorityLabel(p) {
+        const map = { hot: "高优先级", warm: "中优先级", cold: "低优先级" };
+        return map[p] || p || "低优先级";
+    }
+
+    function priorityClass(p) {
+        return p || "cold";
+    }
+
+    function formatTime(t) {
+        if (!t) return "";
+        try {
+            const d = new Date(t);
+            return d.getFullYear() + "-" + 
+                String(d.getMonth() + 1).padStart(2, "0") + "-" +
+                String(d.getDate()).padStart(2, "0") + " " +
+                String(d.getHours()).padStart(2, "0") + ":" +
+                String(d.getMinutes()).padStart(2, "0");
+        } catch(e) { return t; }
+    }
+
+    function renderCustomerDetail() {
+        const c = customerData;
+        const container = document.getElementById("customerDetailContainer");
+
+        let html = '<a href="/" class="detail-page-back"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg> 返回列表</a>';
+
+        // 客户头部信息
+        html += '<div class="detail-page-header-card">';
+        html += '<div class="dh-top"><span class="badge-inline ' + priorityClass(c.priority) + '">' + priorityLabel(c.priority) + '</span>' + (c.grade ? '<span class="grade-badge grade-' + String(c.grade).toLowerCase() + '">' + esc(c.grade) + ' 级</span>' : '') + '</div>';
+        html += '<h2>' + esc(c.name || c.email) + '</h2>';
+        html += '<div class="meta">';
+        html += '<span><span class="meta-label">邮箱:</span> <span class="meta-value">' + esc(c.email || "-") + '</span></span>';
+        if (c.company) html += '<span><span class="meta-label">公司:</span> <span class="meta-value">' + esc(c.company) + '</span></span>';
+        if (c.country) html += '<span><span class="meta-label">国家:</span> <span class="meta-value">' + esc(c.country) + '</span></span>';
+        if (c.last_contact_at) html += '<span><span class="meta-label">最近联系:</span> <span class="meta-value">' + formatTime(c.last_contact_at) + '</span></span>';
+        html += '</div>';
+        html += '<div class="dh-actions">';
+        html += '<button class="detail-action-btn primary" onclick="buildProfile()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg> 构建客户画像</button>';
+        html += '<button class="detail-action-btn secondary" onclick="openEditDialog()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg> 编辑</button>';
+        html += '<button class="detail-action-btn" onclick="openChatDialog()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg> AI 对话</button>';
+        html += '<button class="detail-action-btn danger" onclick="deleteCustomer()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> 删除客户</button>';
+        html += '</div>';
+        html += '</div>';
+
+        // 客户画像
+        if (c.profile_summary) {
+            try {
+                const profile = JSON.parse(c.profile_summary);
+                html += '<div class="detail-page-card" style="margin-top:20px;">';
+                html += '<h3>客户画像</h3>';
+                if (profile.customer_type) html += '<div class="cd-field"><div class="field-label">客户类型</div><div class="field-value">' + esc(profile.customer_type) + '</div></div>';
+                if (profile.company_size) html += '<div class="cd-field"><div class="field-label">公司规模</div><div class="field-value">' + esc(profile.company_size) + '</div></div>';
+                if (profile.history_summary) html += '<div class="cd-field"><div class="field-label">历史合作摘要</div><div class="field-value">' + esc(profile.history_summary) + '</div></div>';
+                if (profile.communication_style) html += '<div class="cd-field"><div class="field-label">沟通风格</div><div class="field-value">' + esc(profile.communication_style) + '</div></div>';
+                if (profile.risks_and_opportunities) html += '<div class="cd-field"><div class="field-label">风险与机会</div><div class="field-value">' + esc(profile.risks_and_opportunities) + '</div></div>';
+                if (profile.suggested_priority) html += '<div class="cd-field"><div class="field-label">建议优先级</div><div class="field-value">' + priorityLabel(profile.suggested_priority) + '</div></div>';
+                html += '</div>';
+            } catch(e) {}
+        }
+
+        // 邮件历史
+        if (c.emails && c.emails.length > 0) {
+            html += '<div class="detail-page-card" style="margin-top:20px;">';
+            html += '<h3>邮件历史 (' + c.emails.length + ')</h3>';
+            html += '<ul class="cd-timeline">';
+            c.emails.forEach(function(em) {
+                html += '<li onclick="location.href=\'/email/' + em.id + '\'" style="cursor:pointer;">';
+                html += '<div class="tl-time">' + formatTime(em.received_at) + '</div>';
+                html += '<div class="tl-subject">' + (em.analysis && em.analysis.priority ? '<span class="tl-dot ' + priorityClass(em.analysis.priority) + '"></span>' : '') + esc(em.subject || "(无主题)") + '</div>';
+                if (em.analysis && em.analysis.summary) {
+                    html += '<div class="tl-summary">' + esc(em.analysis.summary) + '</div>';
+                }
+                html += '</li>';
+            });
+            html += '</ul>';
+            html += '</div>';
+        }
+
+        // WhatsApp 对话区
+        html += '<div class="detail-page-card" id="waSection" style="margin-top:20px;">';
+        html += '<h3>WhatsApp 对话</h3>';
+        html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
+        html += '<button class="btn btn-primary btn-sm" onclick="openWaImport()"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 导入聊天记录</button>';
+        html += '<button class="wa-analyze-btn" id="waAnalyzeBtn" onclick="analyzeWaChat()" style="margin-top:0;"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg> AI 分析对话</button>';
+        html += '</div>';
+        html += '<div id="waContent"><div class="content-empty">暂无 WhatsApp 聊天记录</div></div>';
+        html += '<div id="waAnalysisSection"></div>';
+        html += '</div>';
+
+        container.innerHTML = html;
+        
+        // 渲染 WhatsApp 消息和分析
+        renderWaSection();
+    }
+
+    function renderWaSection() {
+        const content = document.getElementById("waContent");
+        const analysisSection = document.getElementById("waAnalysisSection");
+        if (!content) return;
+
+        if (waMessages && waMessages.length > 0) {
+            let html = '<div class="wa-chat-container">';
+            waMessages.forEach(function(m) {
+                const isMe = m.is_from_me;
+                html += '<div class="wa-chat-msg ' + (isMe ? "me" : "them") + '">';
+                html += '<div class="wa-chat-bubble ' + (isMe ? "me" : "them") + '">';
+                html += '<div class="wa-chat-text">' + esc(m.message_text || "") + '</div>';
+                html += '<div class="wa-chat-meta">' + formatTime(m.timestamp) + '</div>';
+                html += '</div>';
+                html += '</div>';
+            });
+            html += '</div>';
+            content.innerHTML = html;
+        } else {
+            content.innerHTML = '<div class="content-empty">暂无 WhatsApp 聊天记录，点击上方按钮导入</div>';
+        }
+
+        // 渲染分析结果
+        if (analysisSection) {
+            if (waAnalysis) {
+                let html = '<div class="wa-analysis-card detail-page-style" style="margin-top:16px;">';
+                html += '<div class="wa-analysis-title"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg> WhatsApp AI 分析结果</div>';
+                if (waAnalysis.sentiment) {
+                    html += '<div class="wa-analysis-field"><div class="wa-analysis-label">情感倾向</div><div class="wa-analysis-value">' + esc(waAnalysis.sentiment) + '</div></div>';
+                }
+                if (waAnalysis.intent) {
+                    html += '<div class="wa-analysis-field"><div class="wa-analysis-label">对话意图</div><div class="wa-analysis-value">' + esc(waAnalysis.intent) + '</div></div>';
+                }
+                if (waAnalysis.priority) {
+                    html += '<div class="wa-analysis-field"><div class="wa-analysis-label">优先级</div><div class="wa-analysis-value"><span class="badge-inline ' + priorityClass(waAnalysis.priority) + '">' + priorityLabel(waAnalysis.priority) + '</span></div></div>';
+                }
+                if (waAnalysis.summary) {
+                    html += '<div class="wa-analysis-field"><div class="wa-analysis-label">对话摘要</div><div class="wa-analysis-value">' + esc(waAnalysis.summary) + '</div></div>';
+                }
+                if (waAnalysis.key_topics && waAnalysis.key_topics.length > 0) {
+                    html += '<div class="wa-analysis-field"><div class="wa-analysis-label">关键话题</div><div class="wa-analysis-value">' + waAnalysis.key_topics.map(esc).join("、") + '</div></div>';
+                }
+                if (waAnalysis.next_action) {
+                    html += '<div class="wa-analysis-field"><div class="wa-analysis-label">下一步建议</div><div class="wa-analysis-value">' + esc(waAnalysis.next_action) + '</div></div>';
+                }
+                if (waAnalysis.suggested_reply) {
+                    html += '<div class="wa-analysis-field"><div class="wa-analysis-label">建议回复</div><div class="wa-suggested-reply detail-page-style">' + esc(waAnalysis.suggested_reply) + '</div></div>';
+                }
+                html += '</div>';
+                analysisSection.innerHTML = html;
+            } else {
+                analysisSection.innerHTML = '';
+            }
+        }
+    }
+
+    // ── WhatsApp 导入 ──
+    function openWaImport() {
+        document.getElementById("waImportOverlay").classList.add("show");
+        document.getElementById("waTextInput").value = "";
+        document.getElementById("waFileInput").value = "";
+        document.getElementById("waFileName").style.display = "none";
+        selectedWaFile = null;
+    }
+
+    function closeWaImport() {
+        document.getElementById("waImportOverlay").classList.remove("show");
+    }
+
+    function onWaFileSelected(event) {
+        const file = event.target.files[0];
+        if (file) {
+            selectedWaFile = file;
+            const nameEl = document.getElementById("waFileName");
+            nameEl.textContent = "已选择: " + file.name;
+            nameEl.style.display = "block";
+        }
+    }
+
+    async function doWaImport() {
+        const btn = document.getElementById("waImportBtn");
+        const text = document.getElementById("waTextInput").value.trim();
+        
+        if (!text && !selectedWaFile) {
+            toast("请粘贴聊天记录或选择文件", "error");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<svg class="icon-sm spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> 导入中...';
+
+        try {
+            if (selectedWaFile) {
+                // 文件上传 - 通过 URL 参数传递 customer_id
+                const formData = new FormData();
+                formData.append("file", selectedWaFile);
+                formData.append("customer_id", customerId);
+
+                const r = await fetch(API + "/whatsapp/import/file?customer_id=" + customerId, {
+                    method: "POST",
+                    headers: authHeaders(),
+                    body: formData,
+                });
+                const d = await r.json();
+                if (!r.ok) {
+                    throw new Error(d.detail || d.message || "导入失败");
+                }
+                toast("成功导入 " + d.imported + " 条消息", "success");
+            } else {
+                // 文本导入
+                const d = await apiPost("/whatsapp/import", { text: text, customer_id: parseInt(customerId) });
+                toast("成功导入 " + d.imported + " 条消息", "success");
+            }
+
+            closeWaImport();
+            // 重新加载 WhatsApp 消息
+            await loadWaMessages();
+            // 同时刷新客户详情（优先级可能更新）
+            await loadCustomerDetail();
+        } catch(e) {
+            toast("导入失败: " + e.message, "error");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 导入';
+        }
+    }
+
+    // ── WhatsApp AI 分析 ──
+    async function analyzeWaChat() {
+        if (waMessages.length === 0) {
+            toast("请先导入 WhatsApp 聊天记录", "error");
+            return;
+        }
+
+        const btn = document.getElementById("waAnalyzeBtn");
+        btn.disabled = true;
+        btn.innerHTML = '<svg class="icon-sm spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> AI 分析中...';
+
+        try {
+            const d = await apiPost("/whatsapp/analyze", { customer_id: parseInt(customerId) });
+            waAnalysis = d.analysis;
+            renderWaSection();
+            toast("AI 分析完成", "success");
+        } catch(e) {
+            toast("分析失败: " + e.message, "error");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z"/></svg> AI 分析对话';
+        }
+    }
+
+    // ── 构建客户画像 ──
+    async function buildProfile() {
+        toast("正在构建客户画像...", "info");
+        try {
+            const d = await apiPost("/profile/build", { customer_id: parseInt(customerId) });
+            if (d.profile && d.profile.wa_analysis) {
+                waAnalysis = d.profile.wa_analysis;
+            }
+            await loadCustomerDetail();
+            await loadWaMessages();
+            toast("客户画像已更新", "success");
+        } catch(e) {
+            toast("构建失败: " + e.message, "error");
+        }
+    }
+
+    // ── 删除客户 ──
+    async function deleteCustomer() {
+        if (!confirm("确定删除此客户及其所有邮件和聊天记录吗？")) return;
+        try {
+            const r = await fetch(API + "/customers/" + customerId, {
+                method: "DELETE",
+                headers: authHeaders(),
+            });
+            if (r.ok) {
+                toast("客户已删除", "success");
+                setTimeout(function() { location.href = "/"; }, 800);
+            } else {
+                toast("删除失败", "error");
+            }
+        } catch(e) {
+            toast("网络错误", "error");
+        }
+    }
+
+
+    // ── 编辑客户（等级 / 优先级 / 画像摘要） ──
+    function openEditDialog() {
+        const c = customerData;
+        if (!c) { toast("请先打开客户详情", "error"); return; }
+        document.getElementById("editCustomerName").textContent = c.name || c.email || "";
+        document.getElementById("editPriority").value = c.priority || "cold";
+        document.getElementById("editGrade").value = c.grade || "";
+        let p = {};
+        try { p = c.profile_summary ? JSON.parse(c.profile_summary) : {}; } catch(e) { p = {}; }
+        document.getElementById("editCustomerType").value = p.customer_type || "";
+        document.getElementById("editCompanySize").value = p.company_size || "";
+        document.getElementById("editHistorySummary").value = p.history_summary || "";
+        document.getElementById("editCommStyle").value = p.communication_style || "";
+        document.getElementById("editRisks").value = p.risks_and_opportunities || "";
+        document.getElementById("editCustomerOverlay").classList.add("show");
+    }
+    function closeEditDialog() {
+        document.getElementById("editCustomerOverlay").classList.remove("show");
+    }
+    async function saveCustomerEdit() {
+        const c = customerData;
+        if (!c) return;
+        const payload = {
+            priority: document.getElementById("editPriority").value,
+            grade: document.getElementById("editGrade").value,
+            profile: {
+                customer_type: document.getElementById("editCustomerType").value,
+                company_size: document.getElementById("editCompanySize").value,
+                history_summary: document.getElementById("editHistorySummary").value,
+                communication_style: document.getElementById("editCommStyle").value,
+                risks_and_opportunities: document.getElementById("editRisks").value,
+            }
+        };
+        try {
+            const r = await fetch(API + "/customers/" + c.id + "/update", {
+                method: "POST",
+                headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+                body: JSON.stringify(payload),
+            });
+            if (!r.ok) throw new Error("保存失败");
+            const d = await r.json();
+            toast("已保存：客户等级 " + (d.grade || "未分级") + " · " + priorityLabel(d.priority), "success");
+            closeEditDialog();
+            await loadCustomerDetail();
+        } catch(e) {
+            toast("保存失败: " + e.message, "error");
+        }
+    }
+
+    // ── AI 对话 ──
+    let chatHistory = [];
+    function openChatDialog() {
+        const c = customerData;
+        if (!c) { toast("请先打开客户详情", "error"); return; }
+        chatHistory = [];
+        document.getElementById("chatCustomerName").textContent = c.name || c.email || "";
+        document.getElementById("chatBody").innerHTML = '<div class="chat-msg ai"><div class="chat-bubble">你好，我是 AI 销售助理。可以帮你分析客户（' + esc(c.name || c.email) + '）的画像、风险、跟进建议，也可以帮你起草回复。请问有什么可以帮你？</div></div>';
+        document.getElementById("chatInput").value = "";
+        document.getElementById("aiChatOverlay").classList.add("show");
+        setTimeout(function(){ document.getElementById("chatInput").focus(); }, 120);
+    }
+    function closeChatDialog() {
+        document.getElementById("aiChatOverlay").classList.remove("show");
+    }
+    function appendChatMsg(role, text) {
+        const body = document.getElementById("chatBody");
+        const div = document.createElement("div");
+        div.className = "chat-msg " + (role === "user" ? "me" : "ai");
+        const bubble = document.createElement("div");
+        bubble.className = "chat-bubble";
+        bubble.textContent = text;
+        div.appendChild(bubble);
+        body.appendChild(div);
+        body.scrollTop = body.scrollHeight;
+    }
+    async function sendChatMessage() {
+        const input = document.getElementById("chatInput");
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = "";
+        appendChatMsg("user", text);
+        chatHistory.push({ role: "user", content: text });
+        const body = document.getElementById("chatBody");
+        const tip = document.createElement("div");
+        tip.className = "chat-msg ai";
+        tip.innerHTML = '<div class="chat-bubble chat-typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>';
+        body.appendChild(tip);
+        body.scrollTop = body.scrollHeight;
+        try {
+            const r = await fetch(API + "/ai/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: text, customer_id: parseInt(customerId), history: chatHistory }),
+            });
+            const d = await r.json();
+            tip.remove();
+            const reply = d.reply || "（无回复）";
+            appendChatMsg("ai", reply);
+            chatHistory.push({ role: "assistant", content: reply });
+        } catch(e) {
+            tip.remove();
+            appendChatMsg("ai", "请求失败：" + e.message);
+        }
+    }
+
+    init();
+</script>
+
+</body>
+</html>
